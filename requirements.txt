@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic
+langchain
+langchain-groq
+langchain-community
+langchain-chroma
+chromadb
+sentence-transformers
+groq
+streamlit
+requests
+pypdf
+python-dotenv
+tiktoken

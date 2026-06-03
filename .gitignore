@@ -12,3 +12,8 @@ wheels/
 *.lock
 resources/vectorstore
 .env
+
+# Local artifacts
+chroma_db/
+venv/
+.DS_Store
