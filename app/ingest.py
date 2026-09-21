@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -70,6 +71,35 @@ def load_documents_by_role(data_root: Path) -> dict[str, list]:
     return docs_by_collection
 
 
+BM25_METADATA_FIELDS = ("source", "role")
+
+
+def save_bm25_docs(docs_by_collection: dict[str, list], persist_directory: str) -> None:
+    """Persist chunk text per collection so BM25 can be rebuilt at query time.
+
+    Only "source" and "role" are kept from metadata; CSV row fields or any
+    other loader metadata are dropped.
+    """
+    bm25_dir = Path(persist_directory) / "bm25_docs"
+    bm25_dir.mkdir(parents=True, exist_ok=True)
+
+    for collection_name, documents in docs_by_collection.items():
+        if not documents:
+            continue
+
+        records = [
+            {
+                "page_content": doc.page_content,
+                "metadata": {key: doc.metadata.get(key) for key in BM25_METADATA_FIELDS},
+            }
+            for doc in documents
+        ]
+        output_path = bm25_dir / f"{collection_name}.json"
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False)
+        print(f"BM25 docs saved: {collection_name} → {len(records)} chunks")
+
+
 def build_vector_stores() -> None:
     data_root = resolve_data_root()
     if not data_root.exists():
@@ -90,6 +120,8 @@ def build_vector_stores() -> None:
             persist_directory=persist_directory,
         )
         print(f"Ingested {len(documents)} chunks into collection: {collection_name}")
+
+    save_bm25_docs(docs_by_collection, persist_directory)
 
     print("Ingestion completed successfully.")
 

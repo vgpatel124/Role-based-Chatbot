@@ -15,3 +15,6 @@ requests
 pypdf
 python-dotenv
 tiktoken
+
+# BM25 retrieval
+rank-bm25
