@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -36,9 +37,109 @@ def resolve_data_root() -> Path:
     return data_path if data_path.exists() else resources_path
 
 
+# --- Contextual chunk headers ------------------------------------------------
+# Every chunk is prefixed with "<document title> › <section>" before it is
+# embedded (Chroma) and persisted (BM25), e.g.
+#     "Comprehensive Marketing Report - Q2 2024 › Campaign Highlights"
+# Without it, repeated sections such as "## Campaign Highlights" (present in
+# every quarterly marketing report) carry no quarter or report identity and
+# cannot be told apart by retrieval. The header goes FIRST because the
+# embedding model truncates long inputs (~256 tokens for all-MiniLM-L6-v2).
+
+CONTEXT_HEADER_SEPARATOR = " › "
+
+_ATX_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+_SETEXT_UNDERLINE = re.compile(r"^\s*-{3,}\s*$")
+_LIST_ITEM = re.compile(r"^\s*([-*+]|\d+\.)\s")
+
+
+def title_from_filename(file_name: str) -> str:
+    """hr_data.csv -> "HR Data"; marketing_report_q2_2024.md -> "Marketing Report Q2 2024"."""
+    words = re.split(r"[_\-\s]+", Path(file_name).stem)
+    return " ".join(w.upper() if re.fullmatch(r"[a-z]{1,2}|[a-z]\d+", w.lower()) else w.capitalize() for w in words if w)
+
+
+def markdown_outline(text: str) -> tuple[str | None, list[tuple[int, str]]]:
+    """Return (H1 title, [(char offset, section name), ...]) for a markdown text.
+
+    Sections are level-2 headings: ATX ("## Campaign Highlights") or setext
+    ("Executive Summary:" underlined with dashes, used by the annual reports).
+    """
+    title: str | None = None
+    sections: list[tuple[int, str]] = []
+    lines = text.splitlines(keepends=True)
+    offset = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        atx = _ATX_HEADING.match(stripped)
+        if atx:
+            level, name = len(atx.group(1)), atx.group(2).strip()
+            if level == 1 and title is None:
+                title = name
+            elif level == 2:
+                sections.append((offset, name))
+        elif (
+            stripped
+            and i + 1 < len(lines)
+            and _SETEXT_UNDERLINE.match(lines[i + 1])
+            and not _LIST_ITEM.match(line)
+        ):
+            sections.append((offset, stripped.rstrip(":").strip()))
+        offset += len(line)
+    return title, sections
+
+
+def dominant_section(sections: list[tuple[int, str]], start: int, end: int) -> str | None:
+    """The section covering the most characters of text[start:end].
+
+    A chunk that begins with overlap from the previous section is labelled
+    with the section most of it actually belongs to.
+    """
+    best_name, best_overlap = None, 0
+    for i, (sec_start, name) in enumerate(sections):
+        sec_end = sections[i + 1][0] if i + 1 < len(sections) else float("inf")
+        overlap = min(end, sec_end) - max(start, sec_start)
+        if overlap > best_overlap:
+            best_name, best_overlap = name, overlap
+    return best_name
+
+
+def build_context_header(source_text: str, chunk_text: str, start_index: int, file_name: str, suffix: str) -> str:
+    if suffix == ".csv":
+        # CSVLoader: one document per row, first line is "<first column>: <value>".
+        first_field = chunk_text.strip().splitlines()[0].strip() if chunk_text.strip() else ""
+        parts = [title_from_filename(file_name), first_field]
+    else:
+        title, sections = markdown_outline(source_text)
+        section = None
+        if start_index >= 0:
+            section = dominant_section(sections, start_index, start_index + len(chunk_text))
+        parts = [title or title_from_filename(file_name), section]
+    return CONTEXT_HEADER_SEPARATOR.join(p for p in parts if p)
+
+
+def add_context_headers(source_doc, chunks: list, file_name: str, suffix: str) -> list:
+    """Prefix each chunk's page_content with its header; metadata is kept and
+    extended with "context_header"."""
+    for chunk in chunks:
+        header = build_context_header(
+            source_doc.page_content,
+            chunk.page_content,
+            chunk.metadata.get("start_index", -1),
+            file_name,
+            suffix,
+        )
+        chunk.metadata["context_header"] = header
+        chunk.page_content = f"{header}\n\n{chunk.page_content}"
+    return chunks
+
+
 def load_documents_by_role(data_root: Path) -> dict[str, list]:
     docs_by_collection: dict[str, list] = {collection: [] for collection in ROLE_TO_COLLECTION.values()}
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    # add_start_index records where each chunk begins in its source document,
+    # which is how the chunk's section is located. Chunk boundaries are
+    # unchanged (same size/overlap); the header is added after splitting.
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, add_start_index=True)
 
     for folder_name, role in FOLDER_TO_ROLE.items():
         folder = data_root / folder_name
@@ -65,8 +166,9 @@ def load_documents_by_role(data_root: Path) -> dict[str, list]:
                 doc.metadata["role"] = role
                 doc.metadata["source"] = file_path.name
 
-            split_docs = splitter.split_documents(docs)
-            docs_by_collection[collection].extend(split_docs)
+            for doc in docs:
+                chunks = splitter.split_documents([doc])
+                docs_by_collection[collection].extend(add_context_headers(doc, chunks, file_path.name, suffix))
 
     return docs_by_collection
 

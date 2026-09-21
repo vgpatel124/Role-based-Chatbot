@@ -15,6 +15,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 class Settings(BaseModel):
     GROQ_API_KEY: str = Field(default="")
+    GROQ_MODEL: str = Field(default="openai/gpt-oss-120b")
     JWT_SECRET_KEY: str = Field(default="finsolve-secret-key-change-in-production")
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRE_MINUTES: int = Field(default=30)
@@ -34,7 +35,7 @@ class Settings(BaseModel):
     RRF_CANDIDATE_COUNT: int = Field(default=15)
 
     # Reranker
-    RERANKER_MODEL: str = Field(default="BAAI/bge-reranker-base")
+    RERANKER_MODEL: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
     RERANKER_CANDIDATE_COUNT: int = Field(default=15)
     RERANKER_FINAL_TOP_K: int = Field(default=6)
     RERANKER_SCORE_THRESHOLD: float = Field(default=0.1)
@@ -44,11 +45,12 @@ class Settings(BaseModel):
     QUERY_REWRITING_ENABLED: bool = Field(default=True)
 
     # Cache versioning — increment to invalidate all cached responses
-    RETRIEVAL_VERSION: str = Field(default="v1")
+    RETRIEVAL_VERSION: str = Field(default="v2")
 
 
 settings = Settings(
     GROQ_API_KEY=os.getenv("GROQ_API_KEY", ""),
+    GROQ_MODEL=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
     JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", "finsolve-secret-key-change-in-production"),
     JWT_ALGORITHM=os.getenv("JWT_ALGORITHM", "HS256"),
     JWT_EXPIRE_MINUTES=int(os.getenv("JWT_EXPIRE_MINUTES", "30")),
@@ -62,11 +64,11 @@ settings = Settings(
     BM25_TOP_K=int(os.getenv("BM25_TOP_K", "15")),
     RRF_K=int(os.getenv("RRF_K", "60")),
     RRF_CANDIDATE_COUNT=int(os.getenv("RRF_CANDIDATE_COUNT", "15")),
-    RERANKER_MODEL=os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-base"),
+    RERANKER_MODEL=os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"),
     RERANKER_CANDIDATE_COUNT=int(os.getenv("RERANKER_CANDIDATE_COUNT", "15")),
     RERANKER_FINAL_TOP_K=int(os.getenv("RERANKER_FINAL_TOP_K", "6")),
     RERANKER_SCORE_THRESHOLD=float(os.getenv("RERANKER_SCORE_THRESHOLD", "0.1")),
     CONVERSATION_HISTORY_LENGTH=int(os.getenv("CONVERSATION_HISTORY_LENGTH", "6")),
     QUERY_REWRITING_ENABLED=_env_bool("QUERY_REWRITING_ENABLED", True),
-    RETRIEVAL_VERSION=os.getenv("RETRIEVAL_VERSION", "v1"),
+    RETRIEVAL_VERSION=os.getenv("RETRIEVAL_VERSION", "v2"),
 )

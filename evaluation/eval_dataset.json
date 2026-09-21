@@ -1,0 +1,142 @@
+[
+  {
+    "id": "fin_q3_revenue",
+    "category": "finance",
+    "question": "What was FinSolve's revenue in Q3 2024?",
+    "role": "finance",
+    "expected_collections": ["finance"],
+    "expected_sources": ["quarterly_financial_report.md"],
+    "expected_chunk_contains": "Revenue**: $2.4 billion",
+    "expected_answer_keywords": ["$2.4 billion", "30%", "Q3"]
+  },
+  {
+    "id": "fin_vendor_expenses",
+    "category": "finance",
+    "question": "What were the total vendor services expenses in 2024 and what drove them?",
+    "role": "finance",
+    "expected_collections": ["finance"],
+    "expected_sources": ["financial_summary.md"],
+    "expected_chunk_contains": "Vendor Services** - A total of $30M",
+    "expected_answer_keywords": ["$30M", "18%", "Marketing-related"]
+  },
+  {
+    "id": "fin_gross_margin",
+    "category": "finance",
+    "question": "How did the gross margin in 2024 compare to 2023?",
+    "role": "finance",
+    "expected_collections": ["finance"],
+    "expected_sources": ["financial_summary.md"],
+    "expected_chunk_contains": "Gross Margin**: 60% (Up from 55% in 2023)",
+    "expected_answer_keywords": ["60%", "55%", "2023"]
+  },
+  {
+    "id": "hr_by_employee_id",
+    "category": "hr",
+    "question": "What is the role and department of employee FINEMP1005?",
+    "role": "hr",
+    "expected_collections": ["hr_docs"],
+    "expected_sources": ["hr_data.csv"],
+    "expected_chunk_contains": "employee_id: FINEMP1005",
+    "expected_answer_keywords": ["Shaurya Joshi", "Financial Analyst", "Finance"]
+  },
+  {
+    "id": "hr_by_name",
+    "category": "hr",
+    "question": "Where is Krishna Verma located and what is their role?",
+    "role": "hr",
+    "expected_collections": ["hr_docs"],
+    "expected_sources": ["hr_data.csv"],
+    "expected_chunk_contains": "full_name: Krishna Verma",
+    "expected_answer_keywords": ["Mumbai", "Sales Manager"]
+  },
+  {
+    "id": "hr_leave_balance",
+    "category": "hr",
+    "question": "What is the leave balance of employee FINEMP1010?",
+    "role": "hr",
+    "expected_collections": ["hr_docs"],
+    "expected_sources": ["hr_data.csv"],
+    "expected_chunk_contains": "employee_id: FINEMP1010",
+    "expected_answer_keywords": ["Vihaan Chowdhury", "leave_balance: 10"]
+  },
+  {
+    "id": "mkt_campaign_performance",
+    "category": "marketing",
+    "question": "What results did the Q2 2024 influencer partnerships achieve?",
+    "role": "marketing",
+    "expected_collections": ["marketing"],
+    "expected_sources": ["marketing_report_q2_2024.md"],
+    "expected_chunk_contains": "40,000 new customer sign-ups",
+    "expected_answer_keywords": ["20 regional influencers", "40,000", "25%"]
+  },
+  {
+    "id": "mkt_quarter_comparison",
+    "category": "marketing",
+    "question": "How did the marketing spend in Q2 2024 compare to Q3 2024?",
+    "role": "marketing",
+    "expected_collections": ["marketing"],
+    "expected_sources": ["marketing_report_q2_2024.md", "marketing_report_q3_2024.md"],
+    "expected_chunk_contains": "marketing spend of $",
+    "expected_answer_keywords": ["$2.5 million", "$2 million"]
+  },
+  {
+    "id": "eng_microservices",
+    "category": "engineering",
+    "question": "How are FinSolve's microservices deployed and scaled?",
+    "role": "engineering",
+    "expected_collections": ["engineering"],
+    "expected_sources": ["engineering_master_doc.md"],
+    "expected_chunk_contains": "Kubernetes",
+    "expected_answer_keywords": ["Kubernetes", "microservices", "scaling"]
+  },
+  {
+    "id": "eng_sdlc",
+    "category": "engineering",
+    "question": "What are the Scrum ceremonies in FinSolve's software development lifecycle?",
+    "role": "engineering",
+    "expected_collections": ["engineering"],
+    "expected_sources": ["engineering_master_doc.md"],
+    "expected_chunk_contains": "Sprint Retrospective",
+    "expected_answer_keywords": ["Sprint Planning", "Daily Standups", "Sprint Review", "Sprint Retrospective"]
+  },
+  {
+    "id": "gen_leave_policy",
+    "category": "general",
+    "question": "How many days of sick leave do employees get per year?",
+    "role": "employee",
+    "expected_collections": ["general"],
+    "expected_sources": ["employee_handbook.md"],
+    "expected_chunk_contains": "Sick Leave** | 12 days/year",
+    "expected_answer_keywords": ["12 days", "medical certificate"]
+  },
+  {
+    "id": "gen_work_hours",
+    "category": "general",
+    "question": "What are the standard work hours for employees?",
+    "role": "employee",
+    "expected_collections": ["general"],
+    "expected_sources": ["employee_handbook.md"],
+    "expected_chunk_contains": "Standard Hours",
+    "expected_answer_keywords": ["9 hours/day", "8 hours/day", "1 hour break"]
+  },
+  {
+    "id": "unauth_finance_asks_hr",
+    "category": "unauthorized",
+    "question": "What is the leave balance of employee FINEMP1010?",
+    "role": "finance",
+    "expected_collections": ["finance"],
+    "unauthorized_target": "hr_docs",
+    "expected_sources": [],
+    "expected_answer_keywords": []
+  },
+  {
+    "id": "unauth_employee_asks_finance",
+    "category": "unauthorized",
+    "question": "What was FinSolve's revenue in Q3 2024?",
+    "role": "employee",
+    "expected_collections": ["general"],
+    "unauthorized_target": "finance",
+    "expected_sources": [],
+    "expected_answer_keywords": []
+  }
+]

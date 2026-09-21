@@ -1,3 +1,5 @@
+import uuid
+
 import requests
 import streamlit as st
 
@@ -26,6 +28,8 @@ def init_state() -> None:
         st.session_state.user = None
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
 
 
 def login(username: str, password: str) -> bool:
@@ -49,6 +53,8 @@ def login(username: str, password: str) -> bool:
     st.session_state.token = token
     st.session_state.user = me_resp.json()
     st.session_state.messages = []
+    # Fresh conversation per login, matching the cleared message list.
+    st.session_state.session_id = str(uuid.uuid4())
     return True
 
 
@@ -57,7 +63,7 @@ def ask_question(question: str) -> dict:
     try:
         response = requests.post(
             f"{API_BASE_URL}/chat",
-            json={"question": question},
+            json={"question": question, "session_id": st.session_state.session_id},
             headers=headers,
             timeout=60,
         )
@@ -105,6 +111,8 @@ def render_chat() -> None:
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            if msg.get("cache_hit"):
+                st.caption("⚡ cached")
             if msg["role"] == "assistant" and msg.get("sources"):
                 with st.expander("Sources"):
                     for source in msg["sources"]:
@@ -119,10 +127,15 @@ def render_chat() -> None:
         result = ask_question(prompt)
         answer = result.get("answer", "I don't have access to that information")
         sources = result.get("sources", [])
-        st.session_state.messages.append({"role": "assistant", "content": answer, "sources": sources})
+        cache_hit = bool(result.get("cache_hit", False))
+        st.session_state.messages.append(
+            {"role": "assistant", "content": answer, "sources": sources, "cache_hit": cache_hit}
+        )
 
         with st.chat_message("assistant"):
             st.markdown(answer)
+            if cache_hit:
+                st.caption("⚡ cached")
             with st.expander("Sources"):
                 if sources:
                     for source in sources:

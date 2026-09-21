@@ -1,10 +1,27 @@
-from fastapi import Depends, FastAPI, HTTPException
+import time
+import uuid
+
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field, field_validator
 
 from app.auth import LoginRequest, TokenResponse, UserMeResponse, authenticate_user, create_access_token, get_current_user
 from app.rag import query_rag
+from app.schemas.chat import ChatRequest, ChatResponse
+
+# Imported at module level so the reranker model, Redis connection and
+# session store are created once at startup, not on the first request.
+from app.services.cache import semantic_cache  # noqa: F401
+from app.services.reranker import reranker  # noqa: F401
+from app.services.session_store import session_store  # noqa: F401
+from app.utils.embeddings import get_embeddings
+from app.utils.logger import RequestContext, get_logger, log_request_context
+
+logger = get_logger(__name__)
+
+# Warm the shared embedding model now; otherwise the first /chat pays ~8s
+# loading it inside the cache lookup.
+get_embeddings()
 
 app = FastAPI(title="FinSolve RBAC RAG API", version="1.0.0")
 
@@ -15,26 +32,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-class ChatRequest(BaseModel):
-    question: str = Field(..., min_length=1, max_length=1000)
-
-    @field_validator("question")
-    @classmethod
-    def validate_question(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Question must not be empty.")
-        if len(cleaned) > 1000:
-            raise ValueError("Question must be at most 1000 characters.")
-        return cleaned
-
-
-class ChatResponse(BaseModel):
-    answer: str
-    sources: list[str]
-    role: str
 
 
 @app.post("/auth/login", response_model=TokenResponse)
@@ -63,9 +60,33 @@ def me(user=Depends(get_current_user)) -> UserMeResponse:
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(payload: ChatRequest, user=Depends(get_current_user)) -> ChatResponse:
-    result = query_rag(question=payload.question, role=user.role)
-    return ChatResponse(answer=result["answer"], sources=result["sources"], role=user.role)
+def chat(payload: ChatRequest, response: Response, user=Depends(get_current_user)) -> ChatResponse:
+    request_id = str(uuid.uuid4())
+    response.headers["X-Request-ID"] = request_id
+    session_id = payload.session_id or str(uuid.uuid4())
+    ctx = RequestContext(request_id=request_id, session_id=session_id, user_role=user.role)
+
+    started = time.perf_counter()
+    try:
+        # History is keyed per user, so a session_id supplied by another user
+        # can never read or append to someone else's conversation.
+        history_key = f"{user.username}:{session_id}"
+        result = query_rag(
+            question=payload.question, role=user.role, session_id=history_key, ctx=ctx
+        )
+        return ChatResponse(
+            answer=result["answer"],
+            sources=result["sources"],
+            role=user.role,
+            session_id=session_id,
+            cache_hit=ctx.cache_hit,
+        )
+    except Exception:
+        logger.exception("Chat request failed | request_id=%s", request_id)
+        raise
+    finally:
+        ctx.latency_ms["total"] = (time.perf_counter() - started) * 1000
+        log_request_context(ctx)
 
 
 @app.get("/health")
