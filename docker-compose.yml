@@ -1,0 +1,72 @@
+# docker compose up --build
+#   API  http://localhost:8000   UI  http://localhost:8501
+# Needs a .env with GROQ_API_KEY (copy .env.example). Rebuild the index after
+# changing documents:  docker compose run --rm -e FORCE_INGEST=1 ingest
+
+x-app: &app
+  build: .
+  image: finsolve-rag:local
+  env_file:
+    - path: .env
+      required: false
+  environment: &app-env
+    CHROMA_DB_PATH: /data/chroma_db
+    REDIS_URL: redis://redis:6379
+
+services:
+  redis:
+    image: redis/redis-stack-server:latest   # vector search module required by the cache
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  ingest:
+    <<: *app
+    command: ["/app/scripts/ingest.sh"]
+    volumes:
+      - chroma_data:/data
+    restart: "no"
+
+  api:
+    <<: *app
+    environment:
+      <<: *app-env
+      CORS_ORIGINS: http://localhost:8501
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      ingest:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s   # loads the embedding and reranker models
+    restart: unless-stopped
+
+  ui:
+    <<: *app
+    environment:
+      API_BASE_URL: http://api:8000
+    command: ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+  redis_data:

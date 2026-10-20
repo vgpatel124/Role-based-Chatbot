@@ -38,8 +38,8 @@ import logging
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -276,7 +276,7 @@ def main() -> int:
     header = f"{'Config':<7}| {'Recall@' + str(k):<9}| {'Precision@' + str(k):<12}| {'MRR':<6}| {'KwCov@' + str(k):<9}| {'ms/query':<9}| {'RBAC leaks':<11}| Description"
     print(header)
     print("-" * len(header))
-    for key, name, _, uses_reranker in CONFIGS:
+    for key, name, _, _uses_reranker in CONFIGS:
         r = results[key]
         if "error" in r:
             print(f"{key:<7}| FAILED — {r['error']}")
@@ -288,7 +288,7 @@ def main() -> int:
 
     print("\nUnauthorized-access samples (chunks returned per sample; wrong-department chunks must be 0):")
     unauth_ids = [s["id"] for s in samples if s["category"] == "unauthorized"]
-    for key, name, _, uses_reranker in CONFIGS:
+    for key, _name, _, uses_reranker in CONFIGS:
         r = results[key]
         if "error" in r:
             continue

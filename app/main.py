@@ -5,7 +5,15 @@ from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.auth import LoginRequest, TokenResponse, UserMeResponse, authenticate_user, create_access_token, get_current_user
+from app.auth import (
+    LoginRequest,
+    TokenResponse,
+    UserMeResponse,
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+)
+from app.config import settings
 from app.rag import query_rag
 from app.schemas.chat import ChatRequest, ChatResponse
 
@@ -27,7 +35,7 @@ app = FastAPI(title="FinSolve RBAC RAG API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8501"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

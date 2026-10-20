@@ -117,6 +117,19 @@ streamlit run streamlit_app.py
 ```
 Open http://localhost:8501 and log in as one of the test users.
 
+### Run with Docker
+
+The quickest way to run everything (API, UI, Redis Stack and the indexing job):
+
+```bash
+cp .env.example .env        # set GROQ_API_KEY and JWT_SECRET_KEY
+docker compose up --build
+```
+API on http://localhost:8000, UI on http://localhost:8501. The first start indexes the documents into a persistent volume and skips that step afterwards. After changing documents, rebuild the index:
+```bash
+docker compose run --rm -e FORCE_INGEST=1 ingest
+```
+
 ### Configuration
 
 All settings live in `.env` (see [.env.example](.env.example)). The ones you are most likely to change:
@@ -171,7 +184,9 @@ All 13 scenarios passed. The same question asked by four other roles never retur
 ### Automated tests
 
 ```bash
+pip install -r requirements-dev.txt
 pytest tests/ -v
+ruff check .
 ```
 
 **90 tests, all passing, in ~3 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, and the full login-to-answer flow. Breaking RBAC or cache isolation on purpose makes the suite fail (9 and 6 failing tests respectively). Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).

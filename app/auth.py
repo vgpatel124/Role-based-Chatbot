@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -53,7 +52,7 @@ users_db: dict[str, User] = {
 }
 
 
-def authenticate_user(username: str, password: str) -> Optional[User]:
+def authenticate_user(username: str, password: str) -> User | None:
     user = users_db.get(username)
     if user is None:
         return None

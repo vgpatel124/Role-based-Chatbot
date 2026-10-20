@@ -7,3 +7,17 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi[standard]>=0.115.12",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["venv", "chroma_db"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# Long lines are common in tests/docstrings; zip() length mismatches are not a risk here.
+ignore = ["E501", "B905"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom.
+extend-immutable-calls = ["fastapi.Depends"]

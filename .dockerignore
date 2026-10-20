@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+venv
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.DS_Store
+chroma_db
+evaluation/retrieval_results.json
+tests
+docs
+README.md

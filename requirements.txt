@@ -22,7 +22,3 @@ rank-bm25
 # Redis Stack semantic cache
 redis
 redisvl
-
-# Testing
-pytest
-pytest-mock

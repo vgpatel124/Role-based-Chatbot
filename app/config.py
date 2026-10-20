@@ -21,6 +21,8 @@ class Settings(BaseModel):
     JWT_EXPIRE_MINUTES: int = Field(default=30)
     CHROMA_DB_PATH: str = Field(default="./chroma_db")
     RESOURCES_PATH: str = Field(default="./resources")
+    # Origins allowed to call the API from a browser (comma-separated in the env)
+    CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:8501"])
 
     # Redis Stack Semantic Cache
     REDIS_URL: str = Field(default="redis://localhost:6379")
@@ -56,6 +58,7 @@ settings = Settings(
     JWT_EXPIRE_MINUTES=int(os.getenv("JWT_EXPIRE_MINUTES", "30")),
     CHROMA_DB_PATH=os.getenv("CHROMA_DB_PATH", "./chroma_db"),
     RESOURCES_PATH=os.getenv("RESOURCES_PATH", "./resources"),
+    CORS_ORIGINS=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:8501").split(",") if o.strip()],
     REDIS_URL=os.getenv("REDIS_URL", "redis://localhost:6379"),
     CACHE_TTL=int(os.getenv("CACHE_TTL", "3600")),
     CACHE_SIMILARITY_THRESHOLD=float(os.getenv("CACHE_SIMILARITY_THRESHOLD", "0.92")),

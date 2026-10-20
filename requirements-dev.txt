@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Testing and linting
+pytest
+pytest-mock
+ruff
