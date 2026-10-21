@@ -148,7 +148,14 @@ def query_rag(
     role: str,
     session_id: str | None = None,
     ctx: RequestContext | None = None,
+    return_contexts: bool = False,
 ) -> dict[str, Any]:
+    """Answer `question` for `role`.
+
+    return_contexts=True adds the chunk texts the LLM saw under "contexts",
+    for offline evaluation (RAGAS). The API never sets it: document text must
+    not reach responses or logs.
+    """
     ctx = ctx or RequestContext()
     cleaned_question = question.strip()
     if not cleaned_question:
@@ -276,4 +283,6 @@ def query_rag(
     # retrieval fix or re-ingest is not masked by a stored refusal for CACHE_TTL.
     if not declined:
         semantic_cache.set(retrieval_query, role, collections, result)
+    if return_contexts:
+        return {**result, "contexts": [doc.page_content for doc in relevant_docs]}
     return result

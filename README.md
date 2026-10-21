@@ -7,7 +7,7 @@ An internal assistant that answers employees' questions from company documents �
 - **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 0.917, MRR 0.875**.
 - **Conversational** — per-user session memory and automatic rewriting of follow-up questions.
 - **Fast repeats** — RBAC-namespaced semantic cache on Redis Stack (~0.2 s for a repeated question vs ~2 s uncached).
-- **Verified** — 90 automated tests, a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
+- **Verified** — 288 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
 
 **Stack:** FastAPI · Streamlit · LangChain · ChromaDB · rank-bm25 · sentence-transformers · Redis Stack + redisvl · Groq (`openai/gpt-oss-120b`) · JWT (python-jose) · bcrypt
 
@@ -189,7 +189,7 @@ pytest tests/ -v
 ruff check .
 ```
 
-**90 tests, all passing, in ~3 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, and the full login-to-answer flow. Breaking RBAC or cache isolation on purpose makes the suite fail (9 and 6 failing tests respectively). Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
+**288 tests, all passing, in ~5 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, the full login-to-answer flow, and a 160-case RBAC attack matrix (below). Breaking RBAC or cache isolation on purpose makes the suite fail. Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
 
 ### Retrieval evaluation
 
@@ -211,6 +211,40 @@ Five retrieval configurations on 12 answerable questions across all departments,
 - **0 chunks from an unauthorized department** in every configuration.
 - The evaluation set is small (12 questions), so treat the numbers as directional. Methodology, all metrics and before/after analysis: [docs/DESIGN.md](docs/DESIGN.md#evaluation-methodology-and-analysis).
 
+### RBAC red-team
+
+Every role asks every other department's question, plain and wrapped in seven manipulation patterns (ignore-instructions, "I am the CEO", fake system override, prompt extraction, context dump, audit pretext, translation): 5 roles × 4 foreign departments × 8 variants = **160 attacks**. Cases and expected access live in [evaluation/redteam_cases.py](evaluation/redteam_cases.py), independent of the application code, so a bug that widens a role is caught rather than absorbed.
+
+| Layer | Command | Needs | What it proves |
+|-------|---------|-------|----------------|
+| Offline tests | `pytest tests/test_rbac_attacks.py` | nothing | Only authorized collections are searched and no foreign text reaches the LLM prompt; forged, tampered, unsigned and wrongly signed JWTs, unknown role claims, and roles smuggled via headers, query strings, cookies or the body all fail to widen access |
+| Live, retrieval | `python evaluation/redteam.py` | built index | On the real index, no candidate chunk or reranked context contains another department's data |
+| Live, full pipeline | `python evaluation/redteam.py --llm` | index + `GROQ_API_KEY` | Answers contain none of the foreign facts ("canaries"), cite no foreign files |
+
+Measured: **0 leaks in 160/160 attacks**, and with the LLM in the loop **160/160 were refused**. Deliberately widening a role makes the offline matrix fail 35 tests and the live runner report the leaked chunks.
+
+### Answer-level evaluation
+
+```bash
+pip install -r requirements-eval.txt
+python evaluation/evaluate_answers.py            # full run (slow on the free Groq tier: 8,000 tokens/min)
+python evaluation/evaluate_answers.py --reuse --ragas-limit 12   # re-score saved answers, judge a subset
+python evaluation/evaluate_answers.py --check    # exit 1 if below evaluation/thresholds.json
+```
+
+[evaluation/answer_dataset.json](evaluation/answer_dataset.json) has 41 answerable questions with reference answers (every department, plus c-level cross-department questions) and 6 out-of-scope questions that must be declined. Scored without a judge: refusal accuracy, expected-fact coverage, source hit rate. Scored by [RAGAS](https://docs.ragas.io) with a judge from a different model family than the generator (Qwen judging gpt-oss): faithfulness, answer relevancy, context precision, context recall.
+
+Measured on the production pipeline (gpt-oss-120b, 47 questions; RAGAS metrics on a 12-answer subset):
+
+| Metric | Score | | Metric | Score |
+|--------|-------|-|--------|-------|
+| Refusal accuracy | 0.957 | | Faithfulness | 0.900 |
+| Fact coverage | 1.000 | | Answer relevancy | 0.909 |
+| Source hit rate | 1.000 | | Context precision | 0.878 |
+| Out-of-scope declined | 6/6 | | Context recall | 1.000 |
+
+What the evaluation found (not yet fixed): the handbook question about hotel and meal limits is declined because the reranker scores every chunk 0.000 — the chunk holding the ₹3,000 and ₹500 limits carries a different section's header; and "who is the manager of FINEMP1010?" is declined because the manager's own HR row ranks 12th, outside the 6 chunks sent to the LLM. The one 0.0 faithfulness score is the judge not equating "$25 million" with the source's "$25M", so treat RAGAS numbers from 12 samples as directional. Thresholds for the CI gate are in [evaluation/thresholds.json](evaluation/thresholds.json); the [Evals workflow](.github/workflows/evals.yml) runs nightly, on demand, and on pull requests that touch the pipeline.
+
 ## Limitations
 
 - Users are stored in memory in `app/auth.py`; there is no user database.
@@ -228,7 +262,7 @@ Details: [docs/DESIGN.md](docs/DESIGN.md#detailed-limitations).
 - Async endpoints and streaming responses.
 - Automatic re-indexing when source documents change.
 - Per-document metadata filters for comparison questions; exact-identifier boosting for HR/finance lookups.
-- A larger evaluation set with answer-level metrics.
+- Fix the two failures the answer evaluation found (handbook chunk headers; multi-hop lookups such as an employee's manager).
 
 ## API
 

@@ -1,0 +1,616 @@
+[
+  {
+    "id": "fin_q1_revenue",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was FinSolve's revenue in Q1 2024?",
+    "reference": "Q1 2024 revenue was $2.1 billion, up 22% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$2.1 billion"
+    ]
+  },
+  {
+    "id": "fin_q3_revenue",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was FinSolve's revenue in Q3 2024?",
+    "reference": "Q3 2024 revenue was $2.4 billion, up 30% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$2.4 billion"
+    ]
+  },
+  {
+    "id": "fin_q4_gross_margin",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was the gross margin in Q4 2024?",
+    "reference": "The Q4 2024 gross margin was 64%.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "64%"
+    ]
+  },
+  {
+    "id": "fin_annual_revenue",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was FinSolve's total revenue in 2024 and how much did it grow?",
+    "reference": "Total 2024 revenue was $9.4 billion, a 28% year-over-year increase.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$9.4 billion",
+      "28%"
+    ]
+  },
+  {
+    "id": "fin_q3_net_income",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was the net income in Q3 2024?",
+    "reference": "Q3 2024 net income was $300 million, up 15% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$300 million"
+    ]
+  },
+  {
+    "id": "fin_q2_vendor_services",
+    "role": "finance",
+    "type": "answerable",
+    "question": "How much was spent on vendor services in Q2 2024 and what was most of it used for?",
+    "reference": "Vendor services cost $125 million in Q2 2024, with 50% ($62.5 million) dedicated to influencer marketing and social media campaigns.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$125 million",
+      "$62.5 million|50%|half",
+      "influencer"
+    ]
+  },
+  {
+    "id": "fin_software_subscriptions",
+    "role": "finance",
+    "type": "answerable",
+    "question": "How much did FinSolve spend on software subscriptions in 2024?",
+    "reference": "Software subscriptions cost $25M in 2024, up 22% from 2023.",
+    "expected_sources": [
+      "financial_summary.md"
+    ],
+    "keywords": [
+      "$25M|$25 million"
+    ]
+  },
+  {
+    "id": "fin_dso",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was the Days Sales Outstanding in 2024 compared with the industry benchmark?",
+    "reference": "DSO was 45 days against an industry benchmark of 30 days, indicating receivables collection could be improved.",
+    "expected_sources": [
+      "financial_summary.md"
+    ],
+    "keywords": [
+      "45 days",
+      "30 days"
+    ]
+  },
+  {
+    "id": "fin_gross_margin_yoy",
+    "role": "finance",
+    "type": "answerable",
+    "question": "How did the gross margin in 2024 compare to 2023?",
+    "reference": "Gross margin was 60% in 2024, up from 55% in 2023.",
+    "expected_sources": [
+      "financial_summary.md"
+    ],
+    "keywords": [
+      "60%",
+      "55%"
+    ]
+  },
+  {
+    "id": "fin_vendor_drivers",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What were the total vendor services expenses in 2024 and what drove them?",
+    "reference": "Vendor services totalled $30M, an 18% increase, driven mainly by marketing-related expenses (40%), training and education (30%) and software subscriptions (25%).",
+    "expected_sources": [
+      "financial_summary.md"
+    ],
+    "keywords": [
+      "$30M|$30 million",
+      "18%",
+      "marketing"
+    ]
+  },
+  {
+    "id": "mkt_q1_instantpay",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How many sign-ups did the InstantPay launch achieve in Q1 2024?",
+    "reference": "InstantPay achieved 52,000 sign-ups, exceeding the 50,000 target by 4%.",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "52,000"
+    ]
+  },
+  {
+    "id": "mkt_q1_cpa",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What was the Q1 2024 cost per acquisition target?",
+    "reference": "The Q1 2024 cost per acquisition target was $13.33 ($2M divided by 150,000 customers).",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "$13.33"
+    ]
+  },
+  {
+    "id": "mkt_q1_conferences",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "Which conferences were sponsored in Q1 2024 and how many qualified leads did they generate?",
+    "reference": "FinNova sponsored fintech conferences in London and Berlin, generating 200 qualified leads.",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "London",
+      "Berlin",
+      "200"
+    ]
+  },
+  {
+    "id": "mkt_q2_influencers",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What results did the Q2 2024 influencer partnerships achieve?",
+    "reference": "Partnerships with 20 Southeast Asia influencers contributed to 40,000 new customer sign-ups.",
+    "expected_sources": [
+      "marketing_report_q2_2024.md"
+    ],
+    "keywords": [
+      "20",
+      "40,000"
+    ]
+  },
+  {
+    "id": "mkt_q3_loyalty",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How many customers enrolled in the loyalty program in Q3 2024 and how many redeemed rewards?",
+    "reference": "40,000 customers enrolled in the loyalty program, and 55% had redeemed rewards by the end of the quarter.",
+    "expected_sources": [
+      "marketing_report_q3_2024.md"
+    ],
+    "keywords": [
+      "40,000",
+      "55%"
+    ]
+  },
+  {
+    "id": "mkt_q3_merchants",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How many merchant partnerships were launched in Latin America in Q3 2024 and what revenue did they bring?",
+    "reference": "15 regional merchants in Brazil, Mexico and Colombia were onboarded, contributing $1 million in revenue from co-branded promotions.",
+    "expected_sources": [
+      "marketing_report_q3_2024.md"
+    ],
+    "keywords": [
+      "15",
+      "$1 million"
+    ]
+  },
+  {
+    "id": "mkt_q3_targets",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What were the Q3 2024 customer acquisition target and ROI target?",
+    "reference": "The Q3 2024 targets were 180,000 new customers and a 3.75x ROI.",
+    "expected_sources": [
+      "marketing_report_q3_2024.md"
+    ],
+    "keywords": [
+      "180,000",
+      "3.75x|3.75×"
+    ]
+  },
+  {
+    "id": "mkt_q4_budget",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What was the Q4 2024 marketing spend and customer acquisition target?",
+    "reference": "Q4 2024 marketing spend was $2.5 million with a target of 220,000 new customers.",
+    "expected_sources": [
+      "market_report_q4_2024.md"
+    ],
+    "keywords": [
+      "$2.5 million",
+      "220,000"
+    ]
+  },
+  {
+    "id": "hr_1020_role_location",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the role and location of employee FINEMP1020?",
+    "reference": "FINEMP1020 is Krishna Verma, a Sales Manager located in Mumbai.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "Sales Manager",
+      "Mumbai"
+    ]
+  },
+  {
+    "id": "hr_1005_attendance",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the attendance percentage of employee FINEMP1005?",
+    "reference": "FINEMP1005 (Shaurya Joshi) has an attendance of 82.77%.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "82.77"
+    ]
+  },
+  {
+    "id": "hr_1010_manager",
+    "role": "hr",
+    "type": "answerable",
+    "question": "Who is the manager of employee FINEMP1010?",
+    "reference": "The manager of FINEMP1010 (Vihaan Chowdhury) is FINEMP1007.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "FINEMP1007"
+    ]
+  },
+  {
+    "id": "hr_1033_role",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the role and department of employee FINEMP1033?",
+    "reference": "FINEMP1033 is Saanvi Bhat, a Risk Analyst in the Risk department.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "Risk Analyst"
+    ]
+  },
+  {
+    "id": "hr_1020_leave",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the leave balance of employee FINEMP1020?",
+    "reference": "FINEMP1020 has a leave balance of 24 days.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "24"
+    ]
+  },
+  {
+    "id": "eng_sprint",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How long are FinSolve's sprints and how long is sprint planning?",
+    "reference": "Sprints are 2 weeks long and sprint planning takes 4 hours.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "2-week",
+      "4 hours"
+    ]
+  },
+  {
+    "id": "eng_prod_deploy",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How are production deployments done at FinSolve?",
+    "reference": "Production deployments are scheduled bi-weekly using a blue-green strategy, with automated smoke tests and automated rollback on failure.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "blue-green",
+      "bi-weekly",
+      "rollback"
+    ]
+  },
+  {
+    "id": "eng_docker",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "What are FinSolve's Docker standards?",
+    "reference": "Minimal base images (Alpine where possible), multi-stage builds, non-root user execution and image scanning with Trivy.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "multi-stage",
+      "non-root",
+      "Trivy"
+    ]
+  },
+  {
+    "id": "eng_pipeline_tools",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "Which tools does FinSolve use for CI/CD pipeline orchestration and GitOps deployment?",
+    "reference": "Jenkins for build orchestration and ArgoCD for GitOps-based deployment, with Nexus Repository for artifact storage.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Jenkins",
+      "ArgoCD|Argo CD"
+    ]
+  },
+  {
+    "id": "eng_db_scaling",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How does FinSolve scale its databases?",
+    "reference": "PostgreSQL uses range-based sharding with read replicas, MongoDB uses sharding, and PgBouncer provides connection pooling.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "sharding",
+      "PgBouncer"
+    ]
+  },
+  {
+    "id": "eng_microservices",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How are FinSolve's microservices scaled?",
+    "reference": "Services are stateless and scaled horizontally by Kubernetes Horizontal Pod Autoscalers using CPU/memory and custom metrics such as queue length.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Horizontal Pod Autoscaler",
+      "stateless"
+    ]
+  },
+  {
+    "id": "gen_sick_leave",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How many days of sick leave do employees get per year?",
+    "reference": "Employees get 12 days of sick leave per year, non-cumulative, with a medical certificate required for more than 2 days.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "12 days",
+      "medical certificate"
+    ]
+  },
+  {
+    "id": "gen_wfh",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How many days a week can I work from home?",
+    "reference": "Employees can work from home up to 2 days per week, subject to manager and business approval.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "2 days"
+    ]
+  },
+  {
+    "id": "gen_referral",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How much is the employee referral reward and when is it paid?",
+    "reference": "The referral reward is ₹10,000, paid after the new hire completes 6 months.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "₹10,000",
+      "6 months"
+    ]
+  },
+  {
+    "id": "gen_tuition",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How much tuition and certification reimbursement is available per year?",
+    "reference": "Up to ₹50,000 per year, subject to manager and HR approval, and the employee must serve 1 year afterwards or repay the amount.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "₹50,000"
+    ]
+  },
+  {
+    "id": "gen_claims",
+    "role": "employee",
+    "type": "answerable",
+    "question": "Within how many days must expense claims be submitted?",
+    "reference": "Expense claims must be submitted via HRMS with original bills within 30 days of incurring the expense.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "30 days"
+    ]
+  },
+  {
+    "id": "gen_hotel_meals",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What are the hotel and meal limits for official travel?",
+    "reference": "Hotel stays are reimbursed up to ₹3,000 per night and meals up to ₹500 per day.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "₹3,000",
+      "₹500"
+    ]
+  },
+  {
+    "id": "gen_maternity",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How many weeks of maternity leave are provided?",
+    "reference": "Maternity leave is 26 weeks for the first two children and 12 weeks for subsequent children.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "26 weeks",
+      "12 weeks"
+    ]
+  },
+  {
+    "id": "gen_overtime",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How is overtime paid?",
+    "reference": "Overtime is voluntary, needs prior manager approval and is paid at double the regular wage rate.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "double"
+    ]
+  },
+  {
+    "id": "clevel_revenue",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "What was FinSolve's total revenue in 2024?",
+    "reference": "Total 2024 revenue was $9.4 billion.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$9.4 billion"
+    ]
+  },
+  {
+    "id": "clevel_instantpay",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "How many sign-ups did InstantPay achieve in Q1 2024?",
+    "reference": "InstantPay achieved 52,000 sign-ups in Q1 2024.",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "52,000"
+    ]
+  },
+  {
+    "id": "clevel_hr",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "What is the role of employee FINEMP1033?",
+    "reference": "FINEMP1033 is Saanvi Bhat, a Risk Analyst.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "Risk Analyst"
+    ]
+  },
+  {
+    "id": "clevel_handbook",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "What is the employee referral reward?",
+    "reference": "The referral reward is ₹10,000, paid after the new hire completes 6 months.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "₹10,000"
+    ]
+  },
+  {
+    "id": "oos_finance_stock",
+    "role": "finance",
+    "type": "out_of_scope",
+    "question": "What is FinSolve's stock price today?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_marketing_general",
+    "role": "marketing",
+    "type": "out_of_scope",
+    "question": "What is the capital of France?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_hr_missing_employee",
+    "role": "hr",
+    "type": "out_of_scope",
+    "question": "What is the salary of employee FINEMP9999?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_eng_cafeteria",
+    "role": "engineering",
+    "type": "out_of_scope",
+    "question": "Who is the cafeteria vendor at the Bengaluru office?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_employee_ceo_home",
+    "role": "employee",
+    "type": "out_of_scope",
+    "question": "What is the CEO's home address?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_clevel_weather",
+    "role": "c_level",
+    "type": "out_of_scope",
+    "question": "What is the weather in Mumbai today?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "refusal_accuracy": 0.93,
+  "answer_rate": 0.93,
+  "decline_rate_out_of_scope": 1.0,
+  "keyword_coverage": 0.95,
+  "source_hit_rate": 0.95,
+  "faithfulness": 0.8,
+  "answer_relevancy": 0.8,
+  "context_precision": 0.75,
+  "context_recall": 0.85
+}

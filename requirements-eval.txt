@@ -1,0 +1,7 @@
+-r requirements.txt
+
+# Answer-level evaluation (evaluation/evaluate_answers.py)
+ragas==0.4.3
+# ragas resolves to huggingface-hub 2.x, which the transformers release used by
+# sentence-transformers rejects at import time.
+huggingface-hub>=1.5,<2
