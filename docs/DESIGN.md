@@ -145,10 +145,32 @@ For *"Which marketing campaign performed best in Q2 2024?"* this moved the Q2 Ca
 - Unauthorized-access questions: 0 wrong-department chunks in every configuration, before and after; with the reranker (B, E) both return 0 chunks.
 - With 12 scored questions each one moves Recall by 0.083 — the results are directional.
 
+### After cutting chunks at section boundaries: why MRR fell, and what was tried
+
+Cutting chunks where a new `##` section starts (so a chunk's header always names the section it belongs to) raised production Recall@5 from 0.917 to 1.000 and lowered MRR from 0.875 to 0.836. Per question (config E, first relevant rank, before → after): the Q2 influencer-campaign question 1 → 2, Q3 revenue 2 → 3, the Q2-vs-Q3 marketing comparison *missed* → 5. The other nine are unchanged.
+
+**Cause.** The relevant chunks' reranker scores did not change (0.9982 and 0.9996 before and after). The chunks *around* them did: sections that used to be glued onto a neighbour are now short, clean, generic summary chunks ("Conclusion", "2024 Annual Summary") that the cross-encoder scores 0.9994 and 0.9998 for a question about one specific quarter. The model's scores are saturated near 1.0 for all of them, so the order among them is decided in the fourth decimal and the model does not separate "revenue in 2024" from "revenue in Q3 2024". On the 41-question set derived from `evaluation/answer_dataset.json` (relevant = right file and all expected facts in the chunk), MRR is 0.943 after against 0.947 before and Recall@5 is 1.000 for both, so the effect is two near-tie flips, not a retrieval regression.
+
+**Alternatives measured on both indexes and both question sets** (Recall@5 / MRR; 12 = retrieval set, 41 = answer set):
+
+| Change | New index, 12 | New index, 41 | Old index, 12 | Old index, 41 |
+|--------|---------------|---------------|---------------|---------------|
+| Current (reranker alone orders the final list) | 1.000 / 0.836 | 1.000 / 0.943 | 0.917 / 0.875 | 1.000 / 0.947 |
+| Blend first-stage rank into the final score (weights 0.5, 1, 2; range shown) | 0.917 / 0.642-0.764 | 0.927-1.000 / 0.683-0.852 | 0.833-0.917 / 0.653-0.771 | 0.951-1.000 / 0.704-0.856 |
+| Hybrid (BM25 + RRF) for every department | 0.917 / 0.806 | 1.000 / 0.939 | 0.917 / 0.833 | 1.000 / 0.935 |
+| `ms-marco-MiniLM-L-12-v2` | 1.000 / 0.757 | 1.000 / 0.923 | 0.917 / 0.792 | 1.000 / 0.951 |
+| `bge-reranker-base` | 1.000 / 0.917 | 1.000 / 0.939 | 1.000 / 0.896 | 1.000 / 0.963 |
+
+Blending rank signals and widening hybrid retrieval are worse everywhere, and the larger MiniLM is worse too. `bge-reranker-base` is better on the 12 questions but equal within noise on the 41, and adopting it would mean a ~280M-parameter model (about 1.1 GB, against ~23M for MiniLM-L6) in every image, heavier inference, and recalibrating `RERANKER_SCORE_THRESHOLD` (the "no relevant context, no LLM call" safety path), so it is not adopted on this evidence. No pipeline change was made. Instead, `python evaluation/evaluate_retrieval.py --check` now fails the build if config E drops below `evaluation/retrieval_thresholds.json` (Recall 1.0, MRR 0.80, 0 RBAC leaks) or if the three near-tie queries (`fin_q3_revenue`, `mkt_campaign_performance`, `mkt_quarter_comparison`) fall below the ranks recorded as `max_first_rank` in the dataset.
+
+### Conflicting figures across documents
+
+`financial_summary.md` gives FY2024 vendor services as $30M (+18%; marketing 40%, training 30%, software 25%); `quarterly_financial_report.md` gives about $510M (four quarterly "Vendor Services" lines of $120M-$135M). They are the same line item at different scales (the two reports also disagree on revenue growth, 25% vs 28%, and operating cash flow, $50M vs $1.5B) and neither defines a scope, so both are kept. Retrieval already ranks the correct annual-breakdown chunk first; what failed was generation, where the model silently chose $510M. The system prompt now requires that when sources give different values for the same figure, each value is reported with its document and the difference is stated. `fin_vendor_drivers` in the answer evaluation checks the amount, growth rate, all three drivers and the cited source; `tests/test_conflicting_sources.py` checks the prompt rule and that both sources reach the LLM with their labels while staying inside the role's authorized collections.
+
 ## Detailed limitations
 
 - The English `ms-marco-MiniLM-L-6-v2` reranker cannot distinguish CSV rows by an exact ID (all rows score ~0.99 for "leave balance of …"); hybrid retrieval compensates, but the right row is not always ranked first.
-- *"How did the marketing spend in Q2 2024 compare to Q3 2024?"* still misses in every configuration: the Q4 report states the same "$2.5 million" figure, and a comparison question needs two specific chunks from two files in the top 5.
+- *"How did the marketing spend in Q2 2024 compare to Q3 2024?"* is only just retrieved (first relevant chunk at rank 5 in configs B and E, a miss in the others): the Q4 report states the same "$2.5 million" figure, and a comparison question needs two specific chunks from two files in the top 5.
 - Headers also enter BM25, so the document title repeated in every chunk adds a shared term to each one. This does not affect production (BM25 runs only on HR/finance) but lowered configuration D.
 - The LLM cites sources in its own format and sometimes cites the header (e.g. `【HR Data › employee_id: FINEMP1005】`) or invents line ranges (`†L1-L5`). The `sources` field in the API response is the reliable list.
 - `Chroma.from_documents` appends on every ingest run, so `chroma_db/` must be deleted before re-ingesting.

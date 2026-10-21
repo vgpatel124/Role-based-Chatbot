@@ -27,8 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
-      # Empty on pull requests from forks: the LLM-backed steps are then skipped.
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      # Only whether a key exists, never its value: the key itself is passed to the two
+      # LLM-backed steps alone, so pip and the other steps never see it. It is empty on
+      # pull requests from forks, and those steps are then skipped.
+      HAS_GROQ_KEY: ${{ secrets.GROQ_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -46,16 +48,25 @@ jobs:
       - name: Build the index
         run: python -m app.ingest
 
+      # No API key needed: retrieval quality must stay above evaluation/retrieval_thresholds.json
+      # (Recall, MRR and the rank of known near-tie queries) with zero RBAC leaks.
+      - name: Retrieval evaluation
+        run: python evaluation/evaluate_retrieval.py --check
+
       # Always runs, needs no API key: no role may retrieve another department's data.
       - name: RBAC red-team (retrieval and reranker)
         run: python evaluation/redteam.py
 
       - name: RBAC red-team (full pipeline with LLM)
-        if: env.GROQ_API_KEY != ''
+        if: env.HAS_GROQ_KEY == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python evaluation/redteam.py --llm
 
       - name: Answer quality (RAGAS)
-        if: env.GROQ_API_KEY != ''
+        if: env.HAS_GROQ_KEY == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python evaluation/evaluate_answers.py --check --ragas-limit 12
 
       - name: Publish results
@@ -63,6 +74,9 @@ jobs:
         run: |
           {
             echo "## Eval results"
+            if [ "$HAS_GROQ_KEY" != "true" ]; then
+              echo "> **LLM-backed steps were skipped:** the GROQ_API_KEY secret is not available to this run."
+            fi
             for f in evaluation/redteam_results.json evaluation/answer_results.json; do
               if [ -f "$f" ]; then echo "- \`$f\` attached as an artifact"; fi
             done

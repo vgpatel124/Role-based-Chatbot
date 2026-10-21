@@ -35,6 +35,7 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 import time
 import unicodedata
@@ -71,7 +72,8 @@ def _normalize(text: str) -> str:
     non-breaking hyphens, markdown bold and thousands separators."""
     text = unicodedata.normalize("NFKC", text).translate(_DASHES)
     text = text.lower().replace("*", "").replace(",", "").replace("\u00d7", "x")
-    return " ".join(text.split()).replace(" %", "%").replace(" x", "x")  # "3.75 ×" -> "3.75x"
+    text = " ".join(text.split()).replace(" %", "%")
+    return re.sub(r"(\d) ([mbk])\b", r"\1\2", text)  # "$30 M" -> "$30m".replace(" x", "x")  # "3.75 ×" -> "3.75x"
 
 
 def keyword_coverage(answer: str, keywords: list[str]) -> float:
@@ -223,6 +225,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="fail if a metric is below evaluation/thresholds.json")
     parser.add_argument("--reuse", action="store_true", help="reuse answers from the last run instead of regenerating")
     parser.add_argument("--ragas-limit", type=int, help="judge only N evenly spaced answers (saves tokens)")
+    parser.add_argument("--ids", help="only these sample ids (comma-separated)")
     parser.add_argument("--role", help="only samples for this role")
     parser.add_argument("--limit", type=int, help="only the first N samples")
     args = parser.parse_args()
@@ -232,6 +235,9 @@ def main() -> int:
         return 2
 
     samples = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
+    if args.ids:
+        wanted = set(args.ids.split(","))
+        samples = [s for s in samples if s["id"] in wanted]
     if args.role:
         samples = [s for s in samples if s["role"] == args.role]
     if args.limit:

@@ -1,7 +1,7 @@
 """Compare retrieval configurations on evaluation/eval_dataset.json.
 
 Usage (from the project root):
-    python evaluation/evaluate_retrieval.py [--k 5] [--verbose]
+    python evaluation/evaluate_retrieval.py [--k 5] [--verbose] [--check]
 
 Every number printed is measured on this run; nothing is estimated. The LLM
 is never called — this evaluates retrieval (and reranking) only.
@@ -56,6 +56,7 @@ from app.utils.logger import RequestContext  # noqa: E402
 
 DATASET_PATH = ROOT / "evaluation" / "eval_dataset.json"
 RESULTS_PATH = ROOT / "evaluation" / "retrieval_results.json"
+THRESHOLDS_PATH = ROOT / "evaluation" / "retrieval_thresholds.json"
 
 # Chunk metadata "role" (set at ingest) → the collection it was stored in.
 ROLE_METADATA_TO_COLLECTION = {
@@ -228,8 +229,39 @@ def run_config(key: str, fn: Callable, samples: list[dict], k: int, verbose: boo
     }
 
 
+def check_gate(results: dict[str, dict], samples: list[dict]) -> list[str]:
+    """Regression gate for the production configuration (see retrieval_thresholds.json).
+
+    Besides the aggregate floors, a sample may set "max_first_rank" in the dataset:
+    its first relevant chunk must appear at or above that rank. Used for queries
+    where a generic summary chunk competes with the specific one at near-tied
+    reranker scores, so a chunking or reranking change can silently push them down.
+    """
+    gate = json.loads(THRESHOLDS_PATH.read_text(encoding="utf-8"))
+    config = results.get(gate["config"], {})
+    if "error" in config:
+        return [f"config {gate['config']} failed to run"]
+    failures = []
+    if config["recall"] < gate["min_recall"]:
+        failures.append(f"Recall: {config['recall']:.3f} < {gate['min_recall']}")
+    if config["mrr"] < gate["min_mrr"]:
+        failures.append(f"MRR: {config['mrr']:.3f} < {gate['min_mrr']}")
+    if config["rbac_leaks"] > gate["max_rbac_leaks"]:
+        failures.append(f"RBAC leaks: {config['rbac_leaks']} > {gate['max_rbac_leaks']}")
+    ranks = {r["id"]: r.get("first_relevant_rank") for r in config["per_sample"]}
+    for sample in samples:
+        limit = sample.get("max_first_rank")
+        if limit is None:
+            continue
+        rank = ranks.get(sample["id"])
+        if rank is None or rank > limit:
+            failures.append(f"{sample['id']}: first relevant chunk at rank {rank}, required <= {limit}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--check", action="store_true", help="fail if the production config is below evaluation/retrieval_thresholds.json")
     parser.add_argument("--k", type=int, default=5, help="cut-off K for the metrics (default 5)")
     parser.add_argument("--verbose", action="store_true", help="print per-sample results")
     args = parser.parse_args()
@@ -313,7 +345,13 @@ def main() -> int:
     )
     print(f"Per-sample results written to {RESULTS_PATH.relative_to(ROOT)}")
     failed = any("error" in r for r in results.values())
-    return 1 if failed or total_leaks else 0
+    gate_failures = check_gate(results, samples) if args.check else []
+    if args.check:
+        if gate_failures:
+            print("\nRetrieval gate FAILED:\n  " + "\n  ".join(gate_failures))
+        else:
+            print("\nRetrieval gate passed (evaluation/retrieval_thresholds.json)")
+    return 1 if failed or total_leaks or gate_failures else 0
 
 
 if __name__ == "__main__":

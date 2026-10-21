@@ -7,7 +7,7 @@ An internal assistant that answers employees' questions from company documents �
 - **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 1.000, MRR 0.836**.
 - **Conversational** — per-user session memory and automatic rewriting of follow-up questions.
 - **Fast repeats** — RBAC-namespaced semantic cache on Redis Stack (~0.2 s for a repeated question vs ~2 s uncached).
-- **Verified** — 288 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
+- **Verified** — 299 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
 
 **Stack:** FastAPI · Streamlit · LangChain · ChromaDB · rank-bm25 · sentence-transformers · Redis Stack + redisvl · Groq (`openai/gpt-oss-120b`) · JWT (python-jose) · bcrypt
 
@@ -189,12 +189,13 @@ pytest tests/ -v
 ruff check .
 ```
 
-**288 tests, all passing, in ~5 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, the full login-to-answer flow, and a 160-case RBAC attack matrix (below). Breaking RBAC or cache isolation on purpose makes the suite fail. Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
+**299 tests, all passing, in ~5 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, the full login-to-answer flow, and a 160-case RBAC attack matrix (below). Breaking RBAC or cache isolation on purpose makes the suite fail. Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
 
 ### Retrieval evaluation
 
 ```bash
-python evaluation/evaluate_retrieval.py
+python evaluation/evaluate_retrieval.py            # report
+python evaluation/evaluate_retrieval.py --check    # exit 1 if below evaluation/retrieval_thresholds.json
 ```
 
 Five retrieval configurations on 12 answerable questions across all departments, plus 2 unauthorized-access questions (measured, K = 5):
@@ -207,7 +208,7 @@ Five retrieval configurations on 12 answerable questions across all departments,
 | D · Hybrid for every department | 0.750 | 0.496 |
 | **E · Full pipeline (production)** | **1.000** | **0.836** |
 
-- Production retrieval finds a correct chunk in the top 5 for **12 of 12** questions (11 of 12 before chunks were cut at section boundaries, 9 of 12 before contextual chunk headers). MRR moved from 0.875 to 0.836: two questions' correct chunk slid one rank behind a near-tied neighbour (reranker scores 0.999 vs 0.998) while a third, previously missed, entered at rank 5.
+- Production retrieval finds a correct chunk in the top 5 for **12 of 12** questions (11 of 12 before chunks were cut at section boundaries, 9 of 12 before contextual chunk headers). MRR moved from 0.875 to 0.836: two questions' correct chunk slid one rank behind a generic summary chunk that the reranker scores within 0.001 of it, while a third, previously missed, entered at rank 5. On a larger 41-question set MRR is unchanged (0.943 vs 0.947). Blending first-stage ranks, hybrid retrieval for every department and two other cross-encoders were measured as fixes and none is justified by the evidence ([details](docs/DESIGN.md#after-cutting-chunks-at-section-boundaries-why-mrr-fell-and-what-was-tried)); a regression gate now guards the affected queries.
 - **0 chunks from an unauthorized department** in every configuration.
 - The evaluation set is small (12 questions), so treat the numbers as directional. Methodology, all metrics and before/after analysis: [docs/DESIGN.md](docs/DESIGN.md#evaluation-methodology-and-analysis).
 
@@ -234,16 +235,20 @@ python evaluation/evaluate_answers.py --check    # exit 1 if below evaluation/th
 
 [evaluation/answer_dataset.json](evaluation/answer_dataset.json) has 41 answerable questions with reference answers (every department, plus c-level cross-department questions) and 6 out-of-scope questions that must be declined. Scored without a judge: refusal accuracy, expected-fact coverage, source hit rate. Scored by [RAGAS](https://docs.ragas.io) with a judge from a different model family than the generator (Qwen judging gpt-oss): faithfulness, answer relevancy, context precision, context recall.
 
-Measured on the production pipeline (gpt-oss-120b, 47 questions; RAGAS metrics on a 12-answer subset):
+Measured on the production pipeline (gpt-oss-120b, all 47 questions regenerated; RAGAS metrics on 12 evenly spaced answers, the same subset the CI gate uses):
 
 | Metric | Score | | Metric | Score |
 |--------|-------|-|--------|-------|
-| Refusal accuracy | 0.957 | | Faithfulness | 0.900 |
-| Fact coverage | 1.000 | | Answer relevancy | 0.909 |
-| Source hit rate | 1.000 | | Context precision | 0.878 |
+| Refusal accuracy | 1.000 | | Faithfulness | 0.872 |
+| Fact coverage | 1.000 | | Answer relevancy | 0.858 |
+| Source hit rate | 1.000 | | Context precision | 0.919 |
 | Out-of-scope declined | 6/6 | | Context recall | 1.000 |
 
-What the evaluation found: two answerable questions were declined, and both are fixed (the numbers above predate the fixes; all 47 answers were regenerated afterwards: refusal accuracy 1.000, source hit rate 1.000, fact coverage 0.984). The one remaining miss, the 2024 vendor-services total, is a side effect: the corpus holds two different totals ($30M "Vendor Services" in `financial_summary.md`, $510M summed quarterly "Vendor Costs" in the quarterly report), and with the annual-summary section now a clean chunk the model quotes $510M. The handbook question about hotel and meal limits failed because the chunk holding the ₹3,000 and ₹500 limits also contained the end of the payroll section and carried that section's header, so the reranker scored every chunk 0.000; chunks are now cut at section boundaries (re-index to apply). "Who is the manager of FINEMP1010?" failed because an HR row holds only `manager_id: FINEMP1007` and the manager's own row ranked 12th, outside the 6 chunks sent to the LLM; after reranking, `manager_id` references in the retrieved HR rows are now resolved by exact lookup in the same, already authorized, HR collection. The one 0.0 faithfulness score is the judge not equating "$25 million" with the source's "$25M", so treat RAGAS numbers from 12 samples as directional. Thresholds for the CI gate are in [evaluation/thresholds.json](evaluation/thresholds.json); the [Evals workflow](.github/workflows/evals.yml) runs nightly, on demand, and on pull requests that touch the pipeline.
+What the evaluation found, and what was done about it:
+- **Handbook hotel and meal limits were declined.** The chunk holding the ₹3,000 and ₹500 limits also contained the end of the payroll section and carried that section's header, so the reranker scored every chunk 0.000. Chunks are now cut at section boundaries (re-index to apply).
+- **"Who is the manager of FINEMP1010?" was declined.** An HR row holds only `manager_id: FINEMP1007` and the manager's own row ranked 12th, outside the 6 chunks sent to the LLM. After reranking, `manager_id` references in the retrieved HR rows are resolved by exact lookup in the same, already authorized, HR collection.
+- **Vendor services total answered as $510M instead of $30M.** The two finance reports label the same FY2024 line item at different scales ($30M in `financial_summary.md`, about $510M in the quarterly report; they also disagree on revenue growth and operating cash flow) and define no scope, so both figures are kept. Retrieval ranked the right chunk first; the model silently picked one figure. The system prompt now requires reporting each value with its document when sources differ, and the answer now gives both. Side effect: for questions where the two reports disagree (software subscriptions is another), answers are longer, and RAGAS's relevancy score reads such hedged answers as less direct (one judged sample scored 0.00 on that basis), which is why relevancy is 0.858.
+- The judge is itself noisy on 12 samples (it has marked a correct one-line answer 0.33 on faithfulness), so treat the RAGAS numbers as directional. Thresholds for the CI gate are in [evaluation/thresholds.json](evaluation/thresholds.json); the [Evals workflow](.github/workflows/evals.yml) runs nightly, on demand, and on pull requests that touch the pipeline.
 
 ## Limitations
 

@@ -126,14 +126,16 @@
     "role": "finance",
     "type": "answerable",
     "question": "What were the total vendor services expenses in 2024 and what drove them?",
-    "reference": "Vendor services totalled $30M, an 18% increase, driven mainly by marketing-related expenses (40%), training and education (30%) and software subscriptions (25%).",
+    "reference": "Per financial_summary.md, vendor services totalled $30M in 2024, an 18% increase, driven by marketing-related expenses (40%), training and education (30%) and software subscriptions (25%). quarterly_financial_report.md reports a different, much larger figure (about $510M of vendor costs); the answer should show both with their sources rather than silently picking one.",
     "expected_sources": [
       "financial_summary.md"
     ],
     "keywords": [
       "$30M|$30 million",
       "18%",
-      "marketing"
+      "marketing",
+      "training",
+      "software subscriptions"
     ]
   },
   {

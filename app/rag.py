@@ -27,6 +27,19 @@ ALL_COLLECTIONS = ["finance", "marketing", HR_COLLECTION, "engineering", "genera
 # The exact refusal the system prompt tells the LLM to give.
 DECLINED_ANSWER = "I don't have access to that information."
 
+SYSTEM_PROMPT = (
+    "You are FinSolve Technologies' secure enterprise assistant. "
+    "Answer ONLY using the provided context. "
+    "Do NOT guess, infer, or use any outside knowledge. "
+    "If the user's question cannot be clearly and directly answered "
+    "using the provided context, respond exactly with: "
+    "\"I don't have access to that information.\" "
+    "If different source documents give different values for the same figure, "
+    "do not choose one silently: report each value with the document it comes "
+    "from and state that the documents differ. "
+    "Always cite the source documents used in your answer."
+)
+
 
 def is_declined_answer(answer: str) -> bool:
     """True when the LLM gave the prompt's refusal instead of an answer.
@@ -246,16 +259,6 @@ def query_rag(
 
     llm = get_llm()
 
-    system_prompt = (
-        "You are FinSolve Technologies' secure enterprise assistant. "
-        "Answer ONLY using the provided context. "
-        "Do NOT guess, infer, or use any outside knowledge. "
-        "If the user's question cannot be clearly and directly answered "
-        "using the provided context, respond exactly with: "
-        "\"I don't have access to that information.\" "
-        "Always cite the source documents used in your answer."
-    )
-
     # The original question is what the user asked and what gets answered.
     # When it was rewritten, the standalone form is added so the model can
     # resolve references like "it" / "that" without seeing prior turns.
@@ -264,7 +267,7 @@ def query_rag(
         question_block += f"\n(Interpreted as: {retrieval_query})"
     human_prompt = f"{question_block}\n\nContext:\n{context}"
     t0 = time.perf_counter()
-    response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)])
+    response = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=human_prompt)])
     ctx.latency_ms["llm"] = (time.perf_counter() - t0) * 1000
 
     answer_text = response.content if isinstance(response.content, str) else str(response.content)
