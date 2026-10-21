@@ -71,7 +71,7 @@ def _normalize(text: str) -> str:
     non-breaking hyphens, markdown bold and thousands separators."""
     text = unicodedata.normalize("NFKC", text).translate(_DASHES)
     text = text.lower().replace("*", "").replace(",", "").replace("\u00d7", "x")
-    return " ".join(text.split()).replace(" %", "%")
+    return " ".join(text.split()).replace(" %", "%").replace(" x", "x")  # "3.75 ×" -> "3.75x"
 
 
 def keyword_coverage(answer: str, keywords: list[str]) -> float:

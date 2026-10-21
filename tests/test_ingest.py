@@ -1,6 +1,7 @@
 import json
 
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.ingest import (
     CONTEXT_HEADER_SEPARATOR,
@@ -10,6 +11,7 @@ from app.ingest import (
     load_documents_by_role,
     markdown_outline,
     save_bm25_docs,
+    split_at_section_boundaries,
     title_from_filename,
 )
 
@@ -133,3 +135,50 @@ def test_bm25_json_matches_chroma_text_and_keeps_only_source_and_role(tmp_path):
         # BM25 indexes exactly the text Chroma embeds.
         assert [r["page_content"] for r in records] == [d.page_content for d in docs]
         assert all(set(r["metadata"]) == {"source", "role"} for r in records)
+
+
+# --- chunks never straddle two sections ---------------------------------------
+
+
+def _handbook_like() -> str:
+    # Two sections that together fit in one chunk: the splitter packs them
+    # together, as it packed the end of "Compensation & Payroll" and all of
+    # "Reimbursement Policies" in the real handbook.
+    return (
+        "# Handbook\n\n"
+        f"## Payroll\n{'Salary is paid monthly. ' * 20}\n\n"
+        "## Reimbursement\n- Hotel stay up to Rs 3,000/night.\n- Meals up to Rs 500/day.\n"
+        f"{'Submit claims within 30 days. ' * 8}\n"
+    )
+
+
+def test_chunk_spanning_two_sections_is_cut_at_the_section_start():
+    text = _handbook_like()
+    doc = Document(page_content=text, metadata={"source": "handbook.md"})
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, add_start_index=True)
+    # Premise: without the cut, one chunk mixes both sections.
+    assert any("Salary is paid" in c.page_content and "Hotel stay" in c.page_content for c in splitter.split_documents([doc]))
+
+    chunks = add_context_headers(doc, split_at_section_boundaries(doc, splitter, ".md"), "handbook.md", ".md")
+
+    hotel = [c for c in chunks if "Hotel stay" in c.page_content]
+    assert len(hotel) == 1
+    assert hotel[0].metadata["context_header"] == f"Handbook{CONTEXT_HEADER_SEPARATOR}Reimbursement"
+    assert "Salary is paid" not in hotel[0].page_content
+    for c in chunks:
+        start = c.metadata["start_index"]
+        assert text[start : start + 20] in text  # start_index stays relative to the document
+        if "Salary is paid" in c.page_content:
+            assert c.metadata["context_header"].endswith("Payroll")
+            assert "Hotel stay" not in c.page_content
+
+
+def test_split_keeps_non_markdown_and_single_section_chunks_unchanged():
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, add_start_index=True)
+    row = Document(page_content="employee_id: FINEMP1005\nfull_name: Shaurya Joshi", metadata={})
+    assert [c.page_content for c in split_at_section_boundaries(row, splitter, ".csv")] == [row.page_content]
+
+    doc = Document(page_content="## A\n" + "word " * 100 + "\n\n## B\nshort tail\n", metadata={})
+    plain = splitter.split_documents([doc])
+    # "## B" starts within min_part of the end, so the chunk is left as the splitter made it.
+    assert [c.page_content for c in split_at_section_boundaries(doc, splitter, ".md")] == [c.page_content for c in plain]

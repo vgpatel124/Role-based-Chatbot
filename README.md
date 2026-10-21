@@ -4,7 +4,7 @@ An internal assistant that answers employees' questions from company documents �
 
 **Highlights**
 - **RBAC at the retrieval layer** — six roles, five department collections, zero cross-department leakage in every evaluated configuration.
-- **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 0.917, MRR 0.875**.
+- **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 1.000, MRR 0.836**.
 - **Conversational** — per-user session memory and automatic rewriting of follow-up questions.
 - **Fast repeats** — RBAC-namespaced semantic cache on Redis Stack (~0.2 s for a repeated question vs ~2 s uncached).
 - **Verified** — 288 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
@@ -44,7 +44,7 @@ An internal assistant that answers employees' questions from company documents �
 | **Reciprocal Rank Fusion** | Merges dense and BM25 rankings without comparing their incompatible scores. |
 | **Cross-encoder reranker** | Rescores candidates by reading question and chunk together; keeps the best 6. |
 | **Relevance threshold** | Discards weak chunks; if none remain, returns a safe "unable to find" answer without calling the LLM. |
-| **Contextual chunk headers** | Each chunk is indexed with its document and section (e.g. `Comprehensive Marketing Report - Q2 2024 › Campaign Highlights`), so identical sections in different reports stay distinguishable. |
+| **Contextual chunk headers** | Each chunk is indexed with its document and section (e.g. `Comprehensive Marketing Report - Q2 2024 › Campaign Highlights`), so identical sections in different reports stay distinguishable. A chunk that would span two sections is cut at the second section's start, so its header always names the section its text comes from. |
 | **Semantic cache** | Redis Stack vector cache, isolated per role and collection set, with TTL and version-based invalidation; the app runs uncached if Redis is unavailable. |
 | **Conversation memory** | Last 6 messages per user and session, isolated between users. |
 | **Query rewriting** | Rewrites context-dependent follow-ups ("How does that compare…?") only when needed. |
@@ -201,13 +201,13 @@ Five retrieval configurations on 12 answerable questions across all departments,
 
 | Configuration | Recall@5 | MRR |
 |---------------|----------|-----|
-| A · Dense only (original) | 0.583 | 0.364 |
-| B · Dense + reranker | 0.667 | 0.625 |
-| C · Hybrid for HR/Finance | 0.833 | 0.517 |
-| D · Hybrid for every department | 0.750 | 0.507 |
-| **E · Full pipeline (production)** | **0.917** | **0.875** |
+| A · Dense only (original) | 0.500 | 0.350 |
+| B · Dense + reranker | 0.833 | 0.669 |
+| C · Hybrid for HR/Finance | 0.833 | 0.513 |
+| D · Hybrid for every department | 0.750 | 0.496 |
+| **E · Full pipeline (production)** | **1.000** | **0.836** |
 
-- Production retrieval finds a correct chunk in the top 5 for **11 of 12** questions, up from 9 of 12 before contextual chunk headers (Recall 0.750 → 0.917).
+- Production retrieval finds a correct chunk in the top 5 for **12 of 12** questions (11 of 12 before chunks were cut at section boundaries, 9 of 12 before contextual chunk headers). MRR moved from 0.875 to 0.836: two questions' correct chunk slid one rank behind a near-tied neighbour (reranker scores 0.999 vs 0.998) while a third, previously missed, entered at rank 5.
 - **0 chunks from an unauthorized department** in every configuration.
 - The evaluation set is small (12 questions), so treat the numbers as directional. Methodology, all metrics and before/after analysis: [docs/DESIGN.md](docs/DESIGN.md#evaluation-methodology-and-analysis).
 
@@ -243,7 +243,7 @@ Measured on the production pipeline (gpt-oss-120b, 47 questions; RAGAS metrics o
 | Source hit rate | 1.000 | | Context precision | 0.878 |
 | Out-of-scope declined | 6/6 | | Context recall | 1.000 |
 
-What the evaluation found (not yet fixed): the handbook question about hotel and meal limits is declined because the reranker scores every chunk 0.000 — the chunk holding the ₹3,000 and ₹500 limits carries a different section's header; and "who is the manager of FINEMP1010?" is declined because the manager's own HR row ranks 12th, outside the 6 chunks sent to the LLM. The one 0.0 faithfulness score is the judge not equating "$25 million" with the source's "$25M", so treat RAGAS numbers from 12 samples as directional. Thresholds for the CI gate are in [evaluation/thresholds.json](evaluation/thresholds.json); the [Evals workflow](.github/workflows/evals.yml) runs nightly, on demand, and on pull requests that touch the pipeline.
+What the evaluation found: two answerable questions were declined, and both are fixed (the numbers above predate the fixes; all 47 answers were regenerated afterwards: refusal accuracy 1.000, source hit rate 1.000, fact coverage 0.984). The one remaining miss, the 2024 vendor-services total, is a side effect: the corpus holds two different totals ($30M "Vendor Services" in `financial_summary.md`, $510M summed quarterly "Vendor Costs" in the quarterly report), and with the annual-summary section now a clean chunk the model quotes $510M. The handbook question about hotel and meal limits failed because the chunk holding the ₹3,000 and ₹500 limits also contained the end of the payroll section and carried that section's header, so the reranker scored every chunk 0.000; chunks are now cut at section boundaries (re-index to apply). "Who is the manager of FINEMP1010?" failed because an HR row holds only `manager_id: FINEMP1007` and the manager's own row ranked 12th, outside the 6 chunks sent to the LLM; after reranking, `manager_id` references in the retrieved HR rows are now resolved by exact lookup in the same, already authorized, HR collection. The one 0.0 faithfulness score is the judge not equating "$25 million" with the source's "$25M", so treat RAGAS numbers from 12 samples as directional. Thresholds for the CI gate are in [evaluation/thresholds.json](evaluation/thresholds.json); the [Evals workflow](.github/workflows/evals.yml) runs nightly, on demand, and on pull requests that touch the pipeline.
 
 ## Limitations
 
@@ -262,7 +262,6 @@ Details: [docs/DESIGN.md](docs/DESIGN.md#detailed-limitations).
 - Async endpoints and streaming responses.
 - Automatic re-indexing when source documents change.
 - Per-document metadata filters for comparison questions; exact-identifier boosting for HR/finance lookups.
-- Fix the two failures the answer evaluation found (handbook chunk headers; multi-hop lookups such as an employee's manager).
 
 ## API
 

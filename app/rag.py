@@ -12,6 +12,7 @@ from app.config import settings
 from app.services.bm25_retriever import bm25_retriever
 from app.services.cache import semantic_cache
 from app.services.query_rewriter import needs_rewriting, rewrite_query
+from app.services.reference_resolver import resolve_references
 from app.services.reranker import reranker
 from app.services.retrieval_policy import get_policy
 from app.services.rrf import fuse_across_collections, reciprocal_rank_fusion
@@ -228,8 +229,10 @@ def query_rag(
     if not reranked_docs:
         return {"answer": NO_RELEVANT_CONTEXT_ANSWER, "sources": []}
 
-    # Only threshold-passing, reranked, authorized chunks reach the LLM.
-    relevant_docs = reranked_docs
+    # Only threshold-passing, reranked, authorized chunks reach the LLM, plus
+    # rows they point to (an employee's manager), which are looked up only in
+    # the same authorized collection (see reference_resolver).
+    relevant_docs = reranked_docs + resolve_references(reranked_docs, collections)
     sources = sorted({doc.metadata.get("source", "unknown") for doc in relevant_docs})
 
     context = "\n\n".join(
