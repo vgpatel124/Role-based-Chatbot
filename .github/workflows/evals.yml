@@ -64,7 +64,7 @@ jobs:
           {
             echo "## Eval results"
             for f in evaluation/redteam_results.json evaluation/answer_results.json; do
-              [ -f "$f" ] && echo "- \`$f\` attached as an artifact"
+              if [ -f "$f" ]; then echo "- \`$f\` attached as an artifact"; fi
             done
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
