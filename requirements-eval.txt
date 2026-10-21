@@ -5,3 +5,7 @@ ragas==0.4.3
 # ragas resolves to huggingface-hub 2.x, which the transformers release used by
 # sentence-transformers rejects at import time.
 huggingface-hub>=1.5,<2
+# ragas 0.4.3 imports langchain_community.chat_models.vertexai, which langchain-community
+# 0.4.2 removed. A fresh install picked 0.4.2 and the GitHub Evals run failed at import;
+# 0.4.1 is the version this was verified with.
+langchain-community==0.4.1
