@@ -84,17 +84,42 @@ def keyword_coverage(answer: str, keywords: list[str]) -> float:
     return sum(any(_normalize(alt) in text for alt in k.split("|")) for k in keywords) / len(keywords)
 
 
-def ask(sample: dict, attempts: int = 4) -> dict:
-    """Run the pipeline for one sample, retrying provider rate limits."""
+_RETRY_AFTER = re.compile(r"try again in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?", re.IGNORECASE)
+MAX_WAIT_SECONDS = 90  # longer waits mean a per-day budget, which retrying cannot fix
+
+
+def _error_text(exc: Exception) -> str:
+    """Error for the report: organisation ids redacted, long enough to keep the limit details."""
+    return re.sub(r"org_\w+", "org_<redacted>", f"{type(exc).__name__}: {exc}")[:600]
+
+
+def _rate_limit_wait(exc: Exception) -> float | None:
+    """Seconds the provider asks us to wait, or None when this is not a rate limit."""
+    text = str(exc)
+    if "429" not in text and "rate limit" not in text.lower():
+        return None
+    match = _RETRY_AFTER.search(text)
+    if not match:
+        return 15.0
+    hours, minutes, seconds = (float(g) if g else 0.0 for g in match.groups())
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def ask(sample: dict, attempts: int = 6) -> dict:
+    """Run the pipeline for one sample. Short rate limits are waited out as the
+    provider asks; a per-day limit (or any other failure) is reported, not retried."""
     for attempt in range(1, attempts + 1):
         try:
             return query_rag(
                 sample["question"], sample["role"], session_id=None, ctx=RequestContext(), return_contexts=True
             )
         except Exception as exc:
-            if attempt == attempts:
-                return {"answer": "", "sources": [], "contexts": [], "error": f"{type(exc).__name__}: {exc}"[:200]}
-            time.sleep(10 * attempt)
+            wait = _rate_limit_wait(exc)
+            if wait is None:
+                wait = 10.0 * attempt
+            if attempt == attempts or wait > MAX_WAIT_SECONDS:
+                return {"answer": "", "sources": [], "contexts": [], "error": _error_text(exc)}
+            time.sleep(wait + 1)
     raise AssertionError("unreachable")
 
 
@@ -128,9 +153,13 @@ def score_deterministic(samples: list[dict], previous: dict[str, dict] | None = 
             "error": response.get("error"),
             "refused": refused,
             "refusal_correct": None if refused is None else (refused != answerable),
-            "keyword_coverage": keyword_coverage(answer, sample["keywords"]) if answerable and not refused else None,
+            "keyword_coverage": (
+                keyword_coverage(answer, sample["keywords"]) if answerable and refused is False else None
+            ),
             "source_hit": (
-                bool(set(sample["expected_sources"]) & set(response["sources"])) if answerable and not refused else None
+                bool(set(sample["expected_sources"]) & set(response["sources"]))
+                if answerable and refused is False
+                else None
             ),
         }
         rows.append(row)
@@ -215,6 +244,20 @@ def summarize(rows: list[dict]) -> dict[str, float | None]:
     return summary
 
 
+def inconclusive(rows: list[dict], judged: int) -> list[str]:
+    """Reasons the run cannot support a verdict. These are not quality failures:
+    the affected samples are excluded from the metrics, and --check still fails."""
+    reasons = []
+    errored = [r["id"] for r in rows if r["error"]]
+    if errored:
+        reasons.append(f"{len(errored)} of {len(rows)} answers failed with provider errors ({', '.join(errored)})")
+    for metric in RAGAS_METRICS:
+        scored = sum(1 for r in rows if r.get(metric) is not None)
+        if judged and scored < judged / 2:
+            reasons.append(f"{metric} was scored for only {scored} of {judged} judged answers")
+    return reasons
+
+
 def fmt(value: float | None) -> str:
     return "  n/a" if value is None else f"{value:5.3f}"
 
@@ -277,6 +320,14 @@ def main() -> int:
     print("\nSummary")
     for name, value in summary.items():
         print(f"  {name:<28}{fmt(value)}")
+    reasons = inconclusive(rows, judged if not args.no_ragas else 0)
+    if reasons:
+        print("\nINCONCLUSIVE (excluded from the metrics above, not counted as quality failures):")
+        for reason in reasons:
+            print(f"  - {reason}")
+        first_error = next((r["error"] for r in rows if r["error"]), None)
+        if first_error:
+            print(f"  first error: {first_error}")
 
     RESULTS_PATH.write_text(
         json.dumps(
@@ -297,6 +348,9 @@ def main() -> int:
         ]
         if failed:
             print("\nBelow threshold:\n  " + "\n  ".join(failed))
+            return 1
+        if reasons:
+            print("\nThresholds were met on the samples that could be scored, but the run is inconclusive.")
             return 1
         print("\nAll metrics meet evaluation/thresholds.json")
     return 0
