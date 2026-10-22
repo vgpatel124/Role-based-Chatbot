@@ -101,6 +101,17 @@ class BM25RetrieverService:
                 self._indexes[collection_name] = self._load(collection_name)
             return self._indexes[collection_name]
 
+    def find_row(self, collection_name: str, field: str, value: str) -> Document | None:
+        """The chunk with a line "<field>: <value>" (an exact lookup, e.g. one CSV row)."""
+        index = self._get_index(collection_name)
+        if index is None:
+            return None
+        pattern = re.compile(rf"(?m)^{re.escape(field)}: {re.escape(value)}\s*$")
+        for doc in index.documents:
+            if pattern.search(doc.page_content):
+                return Document(page_content=doc.page_content, metadata=dict(doc.metadata))
+        return None
+
     def retrieve(self, question: str, collection_name: str, top_k: int) -> list[Document]:
         if top_k <= 0:
             return []

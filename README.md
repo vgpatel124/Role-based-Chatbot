@@ -4,10 +4,10 @@ An internal assistant that answers employees' questions from company documents �
 
 **Highlights**
 - **RBAC at the retrieval layer** — six roles, five department collections, zero cross-department leakage in every evaluated configuration.
-- **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 0.917, MRR 0.875**.
+- **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 1.000, MRR 0.836**.
 - **Conversational** — per-user session memory and automatic rewriting of follow-up questions.
 - **Fast repeats** — RBAC-namespaced semantic cache on Redis Stack (~0.2 s for a repeated question vs ~2 s uncached).
-- **Verified** — 90 automated tests, a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
+- **Verified** — 299 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
 
 **Stack:** FastAPI · Streamlit · LangChain · ChromaDB · rank-bm25 · sentence-transformers · Redis Stack + redisvl · Groq (`openai/gpt-oss-120b`) · JWT (python-jose) · bcrypt
 
@@ -44,7 +44,7 @@ An internal assistant that answers employees' questions from company documents �
 | **Reciprocal Rank Fusion** | Merges dense and BM25 rankings without comparing their incompatible scores. |
 | **Cross-encoder reranker** | Rescores candidates by reading question and chunk together; keeps the best 6. |
 | **Relevance threshold** | Discards weak chunks; if none remain, returns a safe "unable to find" answer without calling the LLM. |
-| **Contextual chunk headers** | Each chunk is indexed with its document and section (e.g. `Comprehensive Marketing Report - Q2 2024 › Campaign Highlights`), so identical sections in different reports stay distinguishable. |
+| **Contextual chunk headers** | Each chunk is indexed with its document and section (e.g. `Comprehensive Marketing Report - Q2 2024 › Campaign Highlights`), so identical sections in different reports stay distinguishable. A chunk that would span two sections is cut at the second section's start, so its header always names the section its text comes from. |
 | **Semantic cache** | Redis Stack vector cache, isolated per role and collection set, with TTL and version-based invalidation; the app runs uncached if Redis is unavailable. |
 | **Conversation memory** | Last 6 messages per user and session, isolated between users. |
 | **Query rewriting** | Rewrites context-dependent follow-ups ("How does that compare…?") only when needed. |
@@ -189,27 +189,67 @@ pytest tests/ -v
 ruff check .
 ```
 
-**90 tests, all passing, in ~3 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, and the full login-to-answer flow. Breaking RBAC or cache isolation on purpose makes the suite fail (9 and 6 failing tests respectively). Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
+**299 tests, all passing, in ~5 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, the full login-to-answer flow, and a 160-case RBAC attack matrix (below). Breaking RBAC or cache isolation on purpose makes the suite fail. Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
 
 ### Retrieval evaluation
 
 ```bash
-python evaluation/evaluate_retrieval.py
+python evaluation/evaluate_retrieval.py            # report
+python evaluation/evaluate_retrieval.py --check    # exit 1 if below evaluation/retrieval_thresholds.json
 ```
 
 Five retrieval configurations on 12 answerable questions across all departments, plus 2 unauthorized-access questions (measured, K = 5):
 
 | Configuration | Recall@5 | MRR |
 |---------------|----------|-----|
-| A · Dense only (original) | 0.583 | 0.364 |
-| B · Dense + reranker | 0.667 | 0.625 |
-| C · Hybrid for HR/Finance | 0.833 | 0.517 |
-| D · Hybrid for every department | 0.750 | 0.507 |
-| **E · Full pipeline (production)** | **0.917** | **0.875** |
+| A · Dense only (original) | 0.500 | 0.350 |
+| B · Dense + reranker | 0.833 | 0.669 |
+| C · Hybrid for HR/Finance | 0.833 | 0.513 |
+| D · Hybrid for every department | 0.750 | 0.496 |
+| **E · Full pipeline (production)** | **1.000** | **0.836** |
 
-- Production retrieval finds a correct chunk in the top 5 for **11 of 12** questions, up from 9 of 12 before contextual chunk headers (Recall 0.750 → 0.917).
+- Production retrieval finds a correct chunk in the top 5 for **12 of 12** questions (11 of 12 before chunks were cut at section boundaries, 9 of 12 before contextual chunk headers). MRR moved from 0.875 to 0.836: two questions' correct chunk slid one rank behind a generic summary chunk that the reranker scores within 0.001 of it, while a third, previously missed, entered at rank 5. On a larger 41-question set MRR is unchanged (0.943 vs 0.947). Blending first-stage ranks, hybrid retrieval for every department and two other cross-encoders were measured as fixes and none is justified by the evidence ([details](docs/DESIGN.md#after-cutting-chunks-at-section-boundaries-why-mrr-fell-and-what-was-tried)); a regression gate now guards the affected queries.
 - **0 chunks from an unauthorized department** in every configuration.
 - The evaluation set is small (12 questions), so treat the numbers as directional. Methodology, all metrics and before/after analysis: [docs/DESIGN.md](docs/DESIGN.md#evaluation-methodology-and-analysis).
+
+### RBAC red-team
+
+Every role asks every other department's question, plain and wrapped in seven manipulation patterns (ignore-instructions, "I am the CEO", fake system override, prompt extraction, context dump, audit pretext, translation): 5 roles × 4 foreign departments × 8 variants = **160 attacks**. Cases and expected access live in [evaluation/redteam_cases.py](evaluation/redteam_cases.py), independent of the application code, so a bug that widens a role is caught rather than absorbed.
+
+| Layer | Command | Needs | What it proves |
+|-------|---------|-------|----------------|
+| Offline tests | `pytest tests/test_rbac_attacks.py` | nothing | Only authorized collections are searched and no foreign text reaches the LLM prompt; forged, tampered, unsigned and wrongly signed JWTs, unknown role claims, and roles smuggled via headers, query strings, cookies or the body all fail to widen access |
+| Live, retrieval | `python evaluation/redteam.py` | built index | On the real index, no candidate chunk or reranked context contains another department's data |
+| Live, full pipeline | `python evaluation/redteam.py --llm` | index + `GROQ_API_KEY` | Answers contain none of the foreign facts ("canaries"), cite no foreign files |
+
+Measured: **0 leaks in 160/160 attacks**, and with the LLM in the loop **160/160 were refused**. Deliberately widening a role makes the offline matrix fail 35 tests and the live runner report the leaked chunks.
+
+### Answer-level evaluation
+
+```bash
+pip install -r requirements-eval.txt
+python evaluation/evaluate_answers.py            # full run (slow on the free Groq tier: 8,000 tokens/min)
+python evaluation/evaluate_answers.py --reuse --ragas-limit 12   # re-score saved answers, judge a subset
+python evaluation/evaluate_answers.py --check    # exit 1 if below evaluation/thresholds.json
+```
+
+[evaluation/answer_dataset.json](evaluation/answer_dataset.json) has 41 answerable questions with reference answers (every department, plus c-level cross-department questions) and 6 out-of-scope questions that must be declined. Scored without a judge: refusal accuracy, expected-fact coverage, source hit rate. Scored by [RAGAS](https://docs.ragas.io) with a judge from a different model family than the generator (Qwen judging gpt-oss): faithfulness, answer relevancy, context precision, context recall.
+
+Measured on the production pipeline (gpt-oss-120b, all 47 questions regenerated; RAGAS metrics on 12 evenly spaced answers, the same subset the CI gate uses):
+
+| Metric | Score | | Metric | Score |
+|--------|-------|-|--------|-------|
+| Refusal accuracy | 1.000 | | Faithfulness | 0.872 |
+| Fact coverage | 1.000 | | Answer relevancy | 0.858 |
+| Source hit rate | 1.000 | | Context precision | 0.919 |
+| Out-of-scope declined | 6/6 | | Context recall | 1.000 |
+
+What the evaluation found, and what was done about it:
+- **Handbook hotel and meal limits were declined.** The chunk holding the ₹3,000 and ₹500 limits also contained the end of the payroll section and carried that section's header, so the reranker scored every chunk 0.000. Chunks are now cut at section boundaries (re-index to apply).
+- **"Who is the manager of FINEMP1010?" was declined.** An HR row holds only `manager_id: FINEMP1007` and the manager's own row ranked 12th, outside the 6 chunks sent to the LLM. After reranking, `manager_id` references in the retrieved HR rows are resolved by exact lookup in the same, already authorized, HR collection.
+- **Vendor services total answered as $510M instead of $30M.** The two finance reports label the same FY2024 line item at different scales ($30M in `financial_summary.md`, about $510M in the quarterly report; they also disagree on revenue growth and operating cash flow) and define no scope, so both figures are kept. Retrieval ranked the right chunk first; the model silently picked one figure. The system prompt now requires reporting each value with its document when sources differ, and the answer now gives both. Side effect: for questions where the two reports disagree (software subscriptions is another), answers are longer, and RAGAS's relevancy score reads such hedged answers as less direct (one judged sample scored 0.00 on that basis), which is why relevancy is 0.858.
+- **Free-tier budget.** On Groq's free tier the generator model allows 200,000 tokens per day, and one full answer evaluation (47 generations) plus the LLM red-team uses a large share of it, so one or two full runs a day fit. When the provider refuses requests, the run reports `INCONCLUSIVE`, lists the affected answers and fails `--check`; those answers are excluded from the quality metrics instead of being scored as wrong. Waiting out the allowance or using a paid tier clears it.
+- The judge is itself noisy on 12 samples (it has marked a correct one-line answer 0.33 on faithfulness), so treat the RAGAS numbers as directional. Thresholds for the CI gate are in [evaluation/thresholds.json](evaluation/thresholds.json); the [Evals workflow](.github/workflows/evals.yml) runs nightly, on demand, and on pull requests that touch the pipeline.
 
 ## Limitations
 
@@ -228,7 +268,6 @@ Details: [docs/DESIGN.md](docs/DESIGN.md#detailed-limitations).
 - Async endpoints and streaming responses.
 - Automatic re-indexing when source documents change.
 - Per-document metadata filters for comparison questions; exact-identifier boosting for HR/finance lookups.
-- A larger evaluation set with answer-level metrics.
 
 ## API
 

@@ -47,6 +47,8 @@ def resolve_data_root() -> Path:
 # embedding model truncates long inputs (~256 tokens for all-MiniLM-L6-v2).
 
 CONTEXT_HEADER_SEPARATOR = " › "
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
 
 _ATX_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 _SETEXT_UNDERLINE = re.compile(r"^\s*-{3,}\s*$")
@@ -104,6 +106,50 @@ def dominant_section(sections: list[tuple[int, str]], start: int, end: int) -> s
     return best_name
 
 
+def _is_heading_only(text: str) -> bool:
+    """True for text with no body, e.g. a lone "# Report Title" line."""
+    return all(not line.strip() or line.lstrip().startswith("#") for line in text.splitlines())
+
+
+def split_at_section_boundaries(doc, splitter, suffix: str, min_part: int = CHUNK_OVERLAP) -> list:
+    """Split `doc` into chunks, cutting any chunk that spans two sections.
+
+    The splitter packs ~1000 characters per chunk regardless of headings, so
+    a short section ("Reimbursement Policies") can end up in the same chunk
+    as the tail of the previous one ("Compensation & Payroll") and inherit its
+    header. Such a chunk is cut at the section start, and each part is
+    labelled by add_context_headers from where it actually lies. Chunks inside
+    one section are untouched, and a part already covered by the previous
+    chunk's overlap is dropped. A section start less than `min_part`
+    characters from the chunk's end is not cut: that stub is repeated by the
+    next chunk's overlap, and cutting it would only shrink this chunk. start_index stays relative to the whole
+    document. CSV rows and PDF pages have no outline and are split as before.
+    """
+    chunks = splitter.split_documents([doc])
+    if suffix != ".md":
+        return chunks
+
+    _, sections = markdown_outline(doc.page_content)
+    starts = [offset for offset, _ in sections]
+    result: list = []
+    covered_until = 0
+    for chunk in chunks:
+        chunk_start = chunk.metadata["start_index"]
+        chunk_end = chunk_start + len(chunk.page_content)
+        cuts = [chunk_start, *(o for o in starts if chunk_start < o < chunk_end - min_part), chunk_end]
+        for part_start, part_end in zip(cuts, cuts[1:]):
+            text = doc.page_content[part_start:part_end]
+            if _is_heading_only(text) or part_end <= covered_until:
+                continue
+            if len(cuts) == 2:
+                part = chunk
+            else:
+                part = chunk.model_copy(update={"page_content": text, "metadata": {**chunk.metadata, "start_index": part_start}})
+            result.append(part)
+        covered_until = max(covered_until, chunk_end)
+    return result
+
+
 def build_context_header(source_text: str, chunk_text: str, start_index: int, file_name: str, suffix: str) -> str:
     if suffix == ".csv":
         # CSVLoader: one document per row, first line is "<first column>: <value>".
@@ -137,9 +183,8 @@ def add_context_headers(source_doc, chunks: list, file_name: str, suffix: str) -
 def load_documents_by_role(data_root: Path) -> dict[str, list]:
     docs_by_collection: dict[str, list] = {collection: [] for collection in ROLE_TO_COLLECTION.values()}
     # add_start_index records where each chunk begins in its source document,
-    # which is how the chunk's section is located. Chunk boundaries are
-    # unchanged (same size/overlap); the header is added after splitting.
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, add_start_index=True)
+    # which is how the chunk's section is located (see split_at_section_boundaries).
+    splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP, add_start_index=True)
 
     for folder_name, role in FOLDER_TO_ROLE.items():
         folder = data_root / folder_name
@@ -167,7 +212,7 @@ def load_documents_by_role(data_root: Path) -> dict[str, list]:
                 doc.metadata["source"] = file_path.name
 
             for doc in docs:
-                chunks = splitter.split_documents([doc])
+                chunks = split_at_section_boundaries(doc, splitter, suffix)
                 docs_by_collection[collection].extend(add_context_headers(doc, chunks, file_path.name, suffix))
 
     return docs_by_collection

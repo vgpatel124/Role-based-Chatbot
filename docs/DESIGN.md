@@ -41,6 +41,8 @@ Implementation details behind the [README](../README.md): how each component wor
 
 **Reciprocal Rank Fusion.** Dense cosine scores and BM25 scores live on unrelated scales, so concatenating or adding them lets one retriever dominate arbitrarily. RRF uses only ranks — `score = Σ 1/(k + rank)`, `k = 60` — so a chunk ranked well by both retrievers rises to the top. Duplicates are merged by an MD5 of `page_content`. Each fused chunk records `rrf_score`, `dense_rank`, `bm25_rank` and `retrieval_source` (`dense` / `bm25` / `both`). For c_level users the per-collection lists are fused again into one global ranking (`global_rrf_score`).
 
+**Reference resolution.** An HR row holds `manager_id: FINEMP1007`, not the manager's details, and that row shares no words with "who is the manager of FINEMP1010?", so it ranked 12th and never reached the LLM. After reranking, `app/services/reference_resolver.py` reads `manager_id` from the retrieved HR rows and adds the referenced rows (at most 2) by exact lookup in the persisted BM25 chunks. It adds no access: it only looks in the collection the referencing chunk came from, only when that collection is in the role's already-filtered list, and only for `hr_data.csv` rows.
+
 **Cross-encoder reranker.** First-stage retrieval embeds question and chunk separately (fast, approximate). A cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) reads them *together* and judges relevance more precisely, but is too slow for a whole collection, so it runs on the 15 fused candidates and keeps the best 6. The model loads once at startup. Scores are always passed through a sigmoid: `ms-marco-*` models ship with an identity activation and return raw logits, so without it the threshold would mean something different per model. If scoring fails, the reranker fails closed (no chunks → safe answer). In the evaluation it raised MRR from 0.517 to 0.875 and Recall@5 from 0.833 to 0.917 (config C → E).
 
 **Relevance threshold and declined answers.** Chunks scoring below `RERANKER_SCORE_THRESHOLD` (0.1) are discarded. If nothing passes, the API returns *"I was unable to find sufficiently relevant information in your authorized documents to answer this question."* and the LLM is not called. This is also what a user sees when asking about another department: their own collection has nothing relevant (in the evaluation, the best chunk for the two unauthorized questions scored 0.0000 and 0.0087). A second guard sits after the LLM: the system prompt tells it to reply *"I don't have access to that information."* when the context does not directly answer the question. That reply is detected (tolerating curly apostrophes, surrounding quotes and a missing period), returned with `sources: []` — no document was actually used — and not cached, so a retrieval fix or re-ingest is not masked for the cache TTL.
@@ -54,7 +56,7 @@ Implementation details behind the [README](../README.md): how each component wor
 **Contextual chunk headers.** Documents are split into ~1000-character chunks (200 overlap). On its own a chunk loses where it came from: every quarterly marketing report has a `## Campaign Highlights` section, and the Q2 one contains neither "Q2" nor the report's name. At ingest every chunk is prefixed with `<document title> › <section>`:
 
 - Title: the file's H1, or a name derived from the file name (`hr_data.csv` → `HR Data`).
-- Section: the level-2 heading — `## …` or a dash-underlined line — covering most of the chunk's characters, so a chunk that starts with overlap from the previous section is labelled by its main subject. CSV rows use their first field (`employee_id: FINEMP1005`).
+- Section: the level-2 heading — `## …` or a dash-underlined line — covering most of the chunk's characters, so a chunk that starts with overlap from the previous section is labelled by its main subject. Chunks are first cut where a new level-2 section starts more than 200 characters before the chunk ends (a shorter stub is repeated by the next chunk's overlap), because a chunk mixing two sections carries only one header: the handbook's hotel and meal limits sat in a chunk labelled "Compensation & Payroll" and the reranker scored it 0.000. CSV rows use their first field (`employee_id: FINEMP1005`).
 - The header is placed first because `all-MiniLM-L6-v2` reads only ~256 tokens.
 - Chunk boundaries are unchanged; the header is added after splitting. Original metadata is kept and `context_header` is added.
 - The identical text is written to ChromaDB and to the BM25 JSON.
@@ -98,9 +100,10 @@ For *"Which marketing campaign performed best in Q2 2024?"* this moved the Q2 Ca
 | `test_rbac.py` | Collections per role; cross-department questions return no data and never call the LLM; a `role` field in the request body is ignored; invalid / missing / expired JWT → 401 |
 | `test_cache.py` | Hit skips LLM and retrieval; miss stores result; per-role namespaces; escaped namespace filter; similarity threshold; TTL; Redis down / erroring / disabled |
 | `test_conversation.py` | When rewriting triggers; rewrite drives retrieval while the original question is answered; 6-message cap; session isolation (including across users) |
+| `test_reference_resolver.py` | Manager rows resolved only from an authorized HR collection, nothing looked up for other roles or non-HR sources, de-duplication and cap, exact-line BM25 lookup |
 | `test_retrieval.py` | Policies; BM25 fallback when JSON is missing/corrupt; exact-ID ranking; RRF scoring and dedup; finance retrieval never touches other collections |
 | `test_reranker.py` | Ordering, threshold, `top_k`, metadata, sigmoid scores, fail-closed on errors |
-| `test_ingest.py` | Contextual headers: title/section parsing (ATX and setext), majority-section choice, CSV row headers, metadata preserved, distinct Q1/Q2 headers for the same section, BM25 JSON text identical to Chroma text |
+| `test_ingest.py` | Contextual headers: title/section parsing (ATX and setext), majority-section choice, chunks cut at section boundaries, CSV row headers, metadata preserved, distinct Q1/Q2 headers for the same section, BM25 JSON text identical to Chroma text |
 | `test_e2e.py` | Login → chat → answer with sources/session_id; second request served from cache; no cross-role cache sharing; LLM refusals return `sources: []` and are not cached |
 
 ## Evaluation methodology and analysis
@@ -142,10 +145,32 @@ For *"Which marketing campaign performed best in Q2 2024?"* this moved the Q2 Ca
 - Unauthorized-access questions: 0 wrong-department chunks in every configuration, before and after; with the reranker (B, E) both return 0 chunks.
 - With 12 scored questions each one moves Recall by 0.083 — the results are directional.
 
+### After cutting chunks at section boundaries: why MRR fell, and what was tried
+
+Cutting chunks where a new `##` section starts (so a chunk's header always names the section it belongs to) raised production Recall@5 from 0.917 to 1.000 and lowered MRR from 0.875 to 0.836. Per question (config E, first relevant rank, before → after): the Q2 influencer-campaign question 1 → 2, Q3 revenue 2 → 3, the Q2-vs-Q3 marketing comparison *missed* → 5. The other nine are unchanged.
+
+**Cause.** The relevant chunks' reranker scores did not change (0.9982 and 0.9996 before and after). The chunks *around* them did: sections that used to be glued onto a neighbour are now short, clean, generic summary chunks ("Conclusion", "2024 Annual Summary") that the cross-encoder scores 0.9994 and 0.9998 for a question about one specific quarter. The model's scores are saturated near 1.0 for all of them, so the order among them is decided in the fourth decimal and the model does not separate "revenue in 2024" from "revenue in Q3 2024". On the 41-question set derived from `evaluation/answer_dataset.json` (relevant = right file and all expected facts in the chunk), MRR is 0.943 after against 0.947 before and Recall@5 is 1.000 for both, so the effect is two near-tie flips, not a retrieval regression.
+
+**Alternatives measured on both indexes and both question sets** (Recall@5 / MRR; 12 = retrieval set, 41 = answer set):
+
+| Change | New index, 12 | New index, 41 | Old index, 12 | Old index, 41 |
+|--------|---------------|---------------|---------------|---------------|
+| Current (reranker alone orders the final list) | 1.000 / 0.836 | 1.000 / 0.943 | 0.917 / 0.875 | 1.000 / 0.947 |
+| Blend first-stage rank into the final score (weights 0.5, 1, 2; range shown) | 0.917 / 0.642-0.764 | 0.927-1.000 / 0.683-0.852 | 0.833-0.917 / 0.653-0.771 | 0.951-1.000 / 0.704-0.856 |
+| Hybrid (BM25 + RRF) for every department | 0.917 / 0.806 | 1.000 / 0.939 | 0.917 / 0.833 | 1.000 / 0.935 |
+| `ms-marco-MiniLM-L-12-v2` | 1.000 / 0.757 | 1.000 / 0.923 | 0.917 / 0.792 | 1.000 / 0.951 |
+| `bge-reranker-base` | 1.000 / 0.917 | 1.000 / 0.939 | 1.000 / 0.896 | 1.000 / 0.963 |
+
+Blending rank signals and widening hybrid retrieval are worse everywhere, and the larger MiniLM is worse too. `bge-reranker-base` is better on the 12 questions but equal within noise on the 41, and adopting it would mean a ~280M-parameter model (about 1.1 GB, against ~23M for MiniLM-L6) in every image, heavier inference, and recalibrating `RERANKER_SCORE_THRESHOLD` (the "no relevant context, no LLM call" safety path), so it is not adopted on this evidence. No pipeline change was made. Instead, `python evaluation/evaluate_retrieval.py --check` now fails the build if config E drops below `evaluation/retrieval_thresholds.json` (Recall 1.0, MRR 0.80, 0 RBAC leaks) or if the three near-tie queries (`fin_q3_revenue`, `mkt_campaign_performance`, `mkt_quarter_comparison`) fall below the ranks recorded as `max_first_rank` in the dataset.
+
+### Conflicting figures across documents
+
+`financial_summary.md` gives FY2024 vendor services as $30M (+18%; marketing 40%, training 30%, software 25%); `quarterly_financial_report.md` gives about $510M (four quarterly "Vendor Services" lines of $120M-$135M). They are the same line item at different scales (the two reports also disagree on revenue growth, 25% vs 28%, and operating cash flow, $50M vs $1.5B) and neither defines a scope, so both are kept. Retrieval already ranks the correct annual-breakdown chunk first; what failed was generation, where the model silently chose $510M. The system prompt now requires that when sources give different values for the same figure, each value is reported with its document and the difference is stated. `fin_vendor_drivers` in the answer evaluation checks the amount, growth rate, all three drivers and the cited source; `tests/test_conflicting_sources.py` checks the prompt rule and that both sources reach the LLM with their labels while staying inside the role's authorized collections.
+
 ## Detailed limitations
 
 - The English `ms-marco-MiniLM-L-6-v2` reranker cannot distinguish CSV rows by an exact ID (all rows score ~0.99 for "leave balance of …"); hybrid retrieval compensates, but the right row is not always ranked first.
-- *"How did the marketing spend in Q2 2024 compare to Q3 2024?"* still misses in every configuration: the Q4 report states the same "$2.5 million" figure, and a comparison question needs two specific chunks from two files in the top 5.
+- *"How did the marketing spend in Q2 2024 compare to Q3 2024?"* is only just retrieved (first relevant chunk at rank 5 in configs B and E, a miss in the others): the Q4 report states the same "$2.5 million" figure, and a comparison question needs two specific chunks from two files in the top 5.
 - Headers also enter BM25, so the document title repeated in every chunk adds a shared term to each one. This does not affect production (BM25 runs only on HR/finance) but lowered configuration D.
 - The LLM cites sources in its own format and sometimes cites the header (e.g. `【HR Data › employee_id: FINEMP1005】`) or invents line ranges (`†L1-L5`). The `sources` field in the API response is the reliable list.
 - `Chroma.from_documents` appends on every ingest run, so `chroma_db/` must be deleted before re-ingesting.

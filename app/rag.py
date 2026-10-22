@@ -12,6 +12,7 @@ from app.config import settings
 from app.services.bm25_retriever import bm25_retriever
 from app.services.cache import semantic_cache
 from app.services.query_rewriter import needs_rewriting, rewrite_query
+from app.services.reference_resolver import resolve_references
 from app.services.reranker import reranker
 from app.services.retrieval_policy import get_policy
 from app.services.rrf import fuse_across_collections, reciprocal_rank_fusion
@@ -25,6 +26,19 @@ HR_COLLECTION = "hr_docs"
 ALL_COLLECTIONS = ["finance", "marketing", HR_COLLECTION, "engineering", "general"]
 # The exact refusal the system prompt tells the LLM to give.
 DECLINED_ANSWER = "I don't have access to that information."
+
+SYSTEM_PROMPT = (
+    "You are FinSolve Technologies' secure enterprise assistant. "
+    "Answer ONLY using the provided context. "
+    "Do NOT guess, infer, or use any outside knowledge. "
+    "If the user's question cannot be clearly and directly answered "
+    "using the provided context, respond exactly with: "
+    "\"I don't have access to that information.\" "
+    "If different source documents give different values for the same figure, "
+    "do not choose one silently: report each value with the document it comes "
+    "from and state that the documents differ. "
+    "Always cite the source documents used in your answer."
+)
 
 
 def is_declined_answer(answer: str) -> bool:
@@ -148,7 +162,14 @@ def query_rag(
     role: str,
     session_id: str | None = None,
     ctx: RequestContext | None = None,
+    return_contexts: bool = False,
 ) -> dict[str, Any]:
+    """Answer `question` for `role`.
+
+    return_contexts=True adds the chunk texts the LLM saw under "contexts",
+    for offline evaluation (RAGAS). The API never sets it: document text must
+    not reach responses or logs.
+    """
     ctx = ctx or RequestContext()
     cleaned_question = question.strip()
     if not cleaned_question:
@@ -221,8 +242,10 @@ def query_rag(
     if not reranked_docs:
         return {"answer": NO_RELEVANT_CONTEXT_ANSWER, "sources": []}
 
-    # Only threshold-passing, reranked, authorized chunks reach the LLM.
-    relevant_docs = reranked_docs
+    # Only threshold-passing, reranked, authorized chunks reach the LLM, plus
+    # rows they point to (an employee's manager), which are looked up only in
+    # the same authorized collection (see reference_resolver).
+    relevant_docs = reranked_docs + resolve_references(reranked_docs, collections)
     sources = sorted({doc.metadata.get("source", "unknown") for doc in relevant_docs})
 
     context = "\n\n".join(
@@ -236,16 +259,6 @@ def query_rag(
 
     llm = get_llm()
 
-    system_prompt = (
-        "You are FinSolve Technologies' secure enterprise assistant. "
-        "Answer ONLY using the provided context. "
-        "Do NOT guess, infer, or use any outside knowledge. "
-        "If the user's question cannot be clearly and directly answered "
-        "using the provided context, respond exactly with: "
-        "\"I don't have access to that information.\" "
-        "Always cite the source documents used in your answer."
-    )
-
     # The original question is what the user asked and what gets answered.
     # When it was rewritten, the standalone form is added so the model can
     # resolve references like "it" / "that" without seeing prior turns.
@@ -254,7 +267,7 @@ def query_rag(
         question_block += f"\n(Interpreted as: {retrieval_query})"
     human_prompt = f"{question_block}\n\nContext:\n{context}"
     t0 = time.perf_counter()
-    response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)])
+    response = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=human_prompt)])
     ctx.latency_ms["llm"] = (time.perf_counter() - t0) * 1000
 
     answer_text = response.content if isinstance(response.content, str) else str(response.content)
@@ -276,4 +289,6 @@ def query_rag(
     # retrieval fix or re-ingest is not masked by a stored refusal for CACHE_TTL.
     if not declined:
         semantic_cache.set(retrieval_query, role, collections, result)
+    if return_contexts:
+        return {**result, "contexts": [doc.page_content for doc in relevant_docs]}
     return result
