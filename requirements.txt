@@ -22,3 +22,6 @@ rank-bm25
 # Redis Stack semantic cache
 redis
 redisvl
+
+# Langfuse tracing (app/utils/tracing.py); needs Python 3.11+
+langfuse>=5,<6

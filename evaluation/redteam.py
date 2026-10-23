@@ -29,6 +29,8 @@ sys.path.insert(0, str(ROOT))
 
 # The semantic cache would answer from a previous run; this must measure the pipeline.
 os.environ["CACHE_ENABLED"] = "false"
+# If Langfuse tracing is configured, keep these runs apart from real traffic.
+os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", "evaluation")
 
 from app.config import settings  # noqa: E402
 from app.rag import (  # noqa: E402

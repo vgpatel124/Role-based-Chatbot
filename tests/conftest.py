@@ -35,6 +35,10 @@ os.environ["REDIS_URL"] = "redis://127.0.0.1:1"
 os.environ["GROQ_API_KEY"] = "test-key"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key"
 os.environ["QUERY_REWRITING_ENABLED"] = "true"
+# A developer's .env may hold Langfuse keys; empty keys keep tracing off, so tests never
+# send traces (tracing tests switch it on with an in-memory exporter).
+os.environ["LANGFUSE_PUBLIC_KEY"] = ""
+os.environ["LANGFUSE_SECRET_KEY"] = ""
 os.environ["RETRIEVAL_VERSION"] = "v1"
 # Never read the developer's real chroma_db/ or bm25_docs/.
 os.environ["CHROMA_DB_PATH"] = str(ROOT / "tests" / "_nonexistent_chroma_db")

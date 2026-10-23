@@ -7,7 +7,7 @@ An internal assistant that answers employees' questions from company documents �
 - **Accurate retrieval** — hybrid dense + BM25 search, Reciprocal Rank Fusion, cross-encoder reranking with a relevance threshold, and contextual chunk headers. Production pipeline: **Recall@5 1.000, MRR 0.836**.
 - **Conversational** — per-user session memory and automatic rewriting of follow-up questions.
 - **Fast repeats** — RBAC-namespaced semantic cache on Redis Stack (~0.2 s for a repeated question vs ~2 s uncached).
-- **Verified** — 299 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
+- **Verified** — 344 automated tests (including a 160-case RBAC red-team), a retrieval evaluation harness, and a live end-to-end smoke test across all six users.
 
 **Stack:** FastAPI · Streamlit · LangChain · ChromaDB · rank-bm25 · sentence-transformers · Redis Stack + redisvl · Groq (`openai/gpt-oss-120b`) · JWT (python-jose) · bcrypt
 
@@ -48,7 +48,7 @@ An internal assistant that answers employees' questions from company documents �
 | **Semantic cache** | Redis Stack vector cache, isolated per role and collection set, with TTL and version-based invalidation; the app runs uncached if Redis is unavailable. |
 | **Conversation memory** | Last 6 messages per user and session, isolated between users. |
 | **Query rewriting** | Rewrites context-dependent follow-ups ("How does that compare…?") only when needed. |
-| **Observability** | Request ID per call and one structured log line per request, with no tokens, passwords or document text. |
+| **Observability** | Request ID per call and one structured log line per request, with no tokens, passwords or document text. Optional [Langfuse tracing](#observability-langfuse): one trace per chat turn with a span per pipeline step, model and token usage, and quality scores; document and conversation text is withheld by default. |
 
 **Retrieval policy by department**
 
@@ -64,7 +64,7 @@ Implementation details for every component are in **[docs/DESIGN.md](docs/DESIGN
 
 ## Getting Started
 
-Requires Python 3.10+.
+Requires Python 3.11+.
 
 **1. Clone and create a virtual environment**
 ```bash
@@ -145,6 +145,39 @@ All settings live in `.env` (see [.env.example](.env.example)). The ones you are
 
 The full reference (retrieval depths, fusion, reranker, cache and conversation settings) is in [docs/DESIGN.md](docs/DESIGN.md#configuration-reference).
 
+### Observability (Langfuse)
+
+Optional [Langfuse](https://langfuse.com) tracing (Cloud or self-hosted). It is off until both keys are set, and a Langfuse outage only drops traces: spans are exported in the background and every call into the SDK is guarded.
+
+```bash
+# .env — keys from your Langfuse project: Settings > API Keys
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_BASE_URL=https://cloud.langfuse.com      # or https://us.cloud.langfuse.com, or your own host
+LANGFUSE_TRACING_ENVIRONMENT=production           # keeps staging/dev/evaluation traces apart
+```
+
+One `/chat` turn is one trace (`chat-request`), with user, per-user session and a `role:<role>` tag attached to every observation:
+
+```
+answer-question                      chain      role, authorized collections, sources, cache hit, latencies
+├─ rewrite-query                     generation only for follow-up questions: model, tokens
+├─ lookup-cache                      retriever  hit / miss
+├─ retrieve-context                  retriever
+│  └─ search-collection              retriever  one per authorized collection: strategy, dense / BM25 / fused counts
+├─ rerank-candidates                 span       candidates, threshold, kept, reranker scores
+├─ resolve-references                retriever  HR roles only: manager rows added
+└─ generate-answer                   generation model, input / output / reasoning tokens, latency
+```
+
+Scores: `cache_hit`, `answer_declined` and `no_relevant_context` (booleans) on every trace, and `reranker_top_score` whenever reranking ran. Filter on them to find refusals, or on `reranker_top_score` to see how close answers sit to `RERANKER_SCORE_THRESHOLD`.
+
+**What is sent.** This app serves HR and finance records, so by default **no question, answer, prompt or document text leaves the process**: every input/output attribute is stripped at export, whatever the code records, and exception messages and stack traces are reduced to the error class. Traces carry names, counts, scores, timings, model and token usage. Set `LANGFUSE_CAPTURE_CONTENT=true` to send the text as well (sensible for a self-hosted Langfuse or development). JWTs, API keys and e-mail addresses are scrubbed either way, and the username is sent as the Langfuse user id.
+
+**Finding a request.** `X-Request-ID` maps to the trace deterministically, and the request log line carries `trace_id`. In Python: `Langfuse().create_trace_id(seed=<X-Request-ID>)`.
+
+The Langfuse agent skill ([langfuse/skills](https://github.com/langfuse/skills)) is installed in `.claude/skills/langfuse` for coding agents working on this repo. Design and the checks behind it: [docs/DESIGN.md](docs/DESIGN.md#observability-langfuse-tracing).
+
 ### Test users
 
 | Username | Password    | Role        | Can access |
@@ -189,7 +222,7 @@ pytest tests/ -v
 ruff check .
 ```
 
-**299 tests, all passing, in ~5 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, the full login-to-answer flow, and a 160-case RBAC attack matrix (below). Breaking RBAC or cache isolation on purpose makes the suite fail. Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
+**344 tests, all passing, in ~6 seconds**, with no network, Redis or API key required. They cover RBAC and authentication, cache isolation and failure handling, conversation memory and rewriting, retrieval and fusion, reranking, ingestion, the full login-to-answer flow, and a 160-case RBAC attack matrix (below). Breaking RBAC or cache isolation on purpose makes the suite fail. Per-file coverage: [docs/DESIGN.md](docs/DESIGN.md#test-coverage).
 
 ### Retrieval evaluation
 

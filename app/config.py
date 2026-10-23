@@ -49,6 +49,17 @@ class Settings(BaseModel):
     # Cache versioning — increment to invalidate all cached responses
     RETRIEVAL_VERSION: str = Field(default="v2")
 
+    # Langfuse tracing (app/utils/tracing.py). Tracing is off until both keys are set.
+    # The SDK also reads LANGFUSE_TRACING_ENVIRONMENT, LANGFUSE_RELEASE and
+    # LANGFUSE_SAMPLE_RATE from the environment.
+    LANGFUSE_PUBLIC_KEY: str = Field(default="")
+    LANGFUSE_SECRET_KEY: str = Field(default="")
+    LANGFUSE_BASE_URL: str = Field(default="https://cloud.langfuse.com")
+    LANGFUSE_TRACING_ENABLED: bool = Field(default=True)
+    # Send questions, answers, prompts and document text to Langfuse. Off by default:
+    # this app serves HR and finance records.
+    LANGFUSE_CAPTURE_CONTENT: bool = Field(default=False)
+
 
 settings = Settings(
     GROQ_API_KEY=os.getenv("GROQ_API_KEY", ""),
@@ -74,4 +85,9 @@ settings = Settings(
     CONVERSATION_HISTORY_LENGTH=int(os.getenv("CONVERSATION_HISTORY_LENGTH", "6")),
     QUERY_REWRITING_ENABLED=_env_bool("QUERY_REWRITING_ENABLED", True),
     RETRIEVAL_VERSION=os.getenv("RETRIEVAL_VERSION", "v2"),
+    LANGFUSE_PUBLIC_KEY=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
+    LANGFUSE_SECRET_KEY=os.getenv("LANGFUSE_SECRET_KEY", ""),
+    LANGFUSE_BASE_URL=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+    LANGFUSE_TRACING_ENABLED=_env_bool("LANGFUSE_TRACING_ENABLED", True),
+    LANGFUSE_CAPTURE_CONTENT=_env_bool("LANGFUSE_CAPTURE_CONTENT", False),
 )

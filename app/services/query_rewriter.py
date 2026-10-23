@@ -13,6 +13,7 @@ from langchain_groq import ChatGroq
 
 from app.services.session_store import ChatMessage
 from app.utils.logger import get_logger
+from app.utils.tracing import llm_invoke
 
 logger = get_logger(__name__)
 
@@ -69,7 +70,9 @@ def rewrite_query(question: str, history: list[ChatMessage], llm: ChatGroq) -> s
     )
 
     try:
-        response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)])
+        response = llm_invoke(
+            llm, [SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)], "rewrite-query"
+        )
         content = response.content if isinstance(response.content, str) else str(response.content)
         rewritten = content.strip()
         if not rewritten:

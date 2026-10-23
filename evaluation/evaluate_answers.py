@@ -45,6 +45,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 os.environ["CACHE_ENABLED"] = "false"  # measure the pipeline, not yesterday's answers
+# If Langfuse tracing is configured, keep these runs apart from real traffic.
+os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", "evaluation")
 
 from app.config import settings  # noqa: E402
 from app.rag import NO_RELEVANT_CONTEXT_ANSWER, is_declined_answer, query_rag  # noqa: E402
