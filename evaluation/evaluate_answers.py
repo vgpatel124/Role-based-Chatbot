@@ -23,12 +23,17 @@ RAGAS metrics, scored by a judge LLM (answerable, non-declined samples only):
     context_precision   retrieved chunks that are relevant, with relevant ones ranked first
     context_recall      share of the reference answer that the retrieved context supports
 
-The judge is a different model family from the generator on purpose
-(EVAL_JUDGE_MODEL, default Alibaba's qwen3 vs. the app's OpenAI gpt-oss), so the
-generator does not grade its own work.
+The judge is Anthropic's Claude Haiku (EVAL_JUDGE_MODEL, default claude-haiku-5-5), a
+different model family from the generator (OpenAI gpt-oss on Groq), so the generator does
+not grade its own work. It needs ANTHROPIC_API_KEY, which is only used by this script.
 
-Both models are rate limited (Groq free tier: 8,000 tokens/minute), so a full
-run takes tens of minutes; --reuse and --ragas-limit keep iteration cheap.
+Before any answer is generated, a free preflight confirms the key works and the judge
+model exists for the account, then makes one tiny test call with the exact judge
+configuration. A missing key, an unavailable model or a provider error stops the run with
+exit status 2; it is never treated as a pass, and no generator tokens are spent first.
+
+The generator is rate limited (Groq free tier: 8,000 tokens/minute, 200,000/day), so a
+full run takes tens of minutes; --reuse and --ragas-limit keep iteration cheap.
 """
 
 import argparse
@@ -57,7 +62,12 @@ DATASET_PATH = ROOT / "evaluation" / "answer_dataset.json"
 THRESHOLDS_PATH = ROOT / "evaluation" / "thresholds.json"
 RESULTS_PATH = ROOT / "evaluation" / "answer_results.json"
 
-JUDGE_MODEL = os.getenv("EVAL_JUDGE_MODEL", "qwen/qwen3.8-27b")
+JUDGE_MODEL = os.getenv("EVAL_JUDGE_MODEL", "claude-haiku-5-5")
+JUDGE_MAX_TOKENS = 8192  # the Anthropic API requires max_tokens; RAGAS answers are short JSON
+# Claude Haiku 5.5 rejects non-default sampling parameters (the API answers 400), and RAGAS
+# sets a temperature on every judge it is given, so these are removed from the request.
+_SAMPLING_PARAMS = ("temperature", "top_p", "top_k")
+_FINISHED_STOP_REASONS = ("end_turn", "stop_sequence")
 PAUSE_SECONDS = 2.0  # keep under the provider's requests-per-minute limit
 RAGAS_METRICS = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
 
@@ -168,9 +178,58 @@ def score_deterministic(samples: list[dict], previous: dict[str, dict] | None = 
     return rows
 
 
+def build_judge_model():
+    """Claude Haiku as a LangChain chat model. The key is read from ANTHROPIC_API_KEY by the SDK."""
+    from langchain_anthropic import ChatAnthropic
+
+    class JudgeChatAnthropic(ChatAnthropic):
+        def _get_request_payload(self, *args, **kwargs):
+            payload = super()._get_request_payload(*args, **kwargs)
+            for key in _SAMPLING_PARAMS:
+                payload.pop(key, None)
+            return payload
+
+    return JudgeChatAnthropic(model=JUDGE_MODEL, max_tokens=JUDGE_MAX_TOKENS)
+
+
+def judge_finished(result) -> bool:
+    """RAGAS 'did the judge finish?' hook. Anthropic reports why it stopped; only a natural end
+    counts, because a max_tokens cut leaves truncated JSON that must not be scored."""
+    for generations in result.generations:
+        for generation in generations:
+            metadata = getattr(getattr(generation, "message", None), "response_metadata", None) or {}
+            if metadata.get("stop_reason") not in _FINISHED_STOP_REASONS:
+                return False
+    return True
+
+
+def _describe_error(exc: Exception) -> str:
+    """Error class and HTTP status only: provider messages are kept out of logs and reports."""
+    status = getattr(exc, "status_code", None)
+    return type(exc).__name__ + (f" (HTTP {status})" if status else "")
+
+
+def preflight_judge() -> str | None:
+    """None when the judge is usable, otherwise why not. Runs before any generator tokens are spent."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return "ANTHROPIC_API_KEY is not set (environment or repository secret)"
+    try:
+        import anthropic
+
+        anthropic.Anthropic().models.retrieve(JUDGE_MODEL)  # free: availability for this account
+    except Exception as exc:
+        return f"model {JUDGE_MODEL} could not be confirmed: {_describe_error(exc)}"
+    try:
+        reply = build_judge_model().invoke("Reply with the single word OK.")  # the exact judge configuration
+    except Exception as exc:
+        return f"test call to {JUDGE_MODEL} failed: {_describe_error(exc)}"
+    if (getattr(reply, "response_metadata", None) or {}).get("stop_reason") not in _FINISHED_STOP_REASONS:
+        return f"test call to {JUDGE_MODEL} did not finish normally"
+    return None
+
+
 def run_ragas(rows: list[dict], limit: int | None = None) -> int:
     """Add RAGAS scores to the rows that can be judged. Returns how many were judged."""
-    from langchain_groq import ChatGroq
     from ragas import EvaluationDataset, RunConfig, evaluate
     from ragas.dataset_schema import SingleTurnSample
     from ragas.embeddings import LangchainEmbeddingsWrapper
@@ -195,13 +254,15 @@ def run_ragas(rows: list[dict], limit: int | None = None) -> int:
             for r in judged
         ]
     )
-    judge = LangchainLLMWrapper(ChatGroq(model=JUDGE_MODEL, temperature=0, groq_api_key=settings.GROQ_API_KEY))
+    judge = LangchainLLMWrapper(
+        build_judge_model(), bypass_temperature=True, bypass_n=True, is_finished_parser=judge_finished
+    )
     embeddings = LangchainEmbeddingsWrapper(get_embeddings())
     result = evaluate(
         dataset,
         metrics=[
             Faithfulness(),
-            # Groq rejects n>1 completions, which strictness>1 needs.
+            # One completion per call; strictness>1 would need several (n>1).
             ResponseRelevancy(strictness=1),
             LLMContextPrecisionWithReference(),
             LLMContextRecall(),
@@ -278,6 +339,12 @@ def main() -> int:
     if not settings.GROQ_API_KEY:
         print("GROQ_API_KEY is required (environment or .env).", file=sys.stderr)
         return 2
+    if not args.no_ragas:
+        problem = preflight_judge()
+        if problem:
+            print(f"RAGAS judge unavailable: {problem}.", file=sys.stderr)
+            return 2
+        print(f"Judge preflight passed: {JUDGE_MODEL}")
 
     samples = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
     if args.ids:
