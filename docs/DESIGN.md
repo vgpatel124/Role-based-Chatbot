@@ -69,8 +69,11 @@ For *"Which marketing campaign performed best in Q2 2024?"* this moved the Q2 Ca
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GROQ_API_KEY` | *(none)* | Groq API key used for answers and query rewriting |
+| `LLM_PROVIDER` | `groq` | `groq` or `anthropic`; built in `app/utils/llm.py`, which also reads Claude's block-list replies and sends no sampling parameters to Claude (Claude Haiku 5.5 rejects them) |
+| `GROQ_API_KEY` | *(none)* | Groq API key used for answers and query rewriting (`LLM_PROVIDER=groq`) |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq chat model for answers and query rewriting |
+| `ANTHROPIC_API_KEY` | *(none)* | Anthropic API key (`LLM_PROVIDER=anthropic`, and the RAGAS judge) |
+| `ANTHROPIC_MODEL` | `claude-haiku-5-5` | Claude model for answers and query rewriting |
 | `JWT_SECRET_KEY` | `finsolve-secret-key-change-in-production` | HMAC secret used to sign JWTs — change it |
 | `JWT_EXPIRE_MINUTES` | `30` | Token lifetime in minutes |
 | `CHROMA_DB_PATH` | `./chroma_db` | ChromaDB directory; BM25 JSON lives in `bm25_docs/` inside it |

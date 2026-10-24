@@ -32,8 +32,10 @@ model exists for the account, then makes one tiny test call with the exact judge
 configuration. A missing key, an unavailable model or a provider error stops the run with
 exit status 2; it is never treated as a pass, and no generator tokens are spent first.
 
-The generator is rate limited (Groq free tier: 8,000 tokens/minute, 200,000/day), so a
-full run takes tens of minutes; --reuse and --ragas-limit keep iteration cheap.
+The generator is the chatbot's own LLM (LLM_PROVIDER: Groq by default, Anthropic in the
+Evals workflow). On Groq's free tier it is rate limited (8,000 tokens/minute, 200,000/day), so
+a full run takes tens of minutes and can run out of quota; --reuse and --ragas-limit keep
+iteration cheap.
 """
 
 import argparse
@@ -56,6 +58,13 @@ os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", "evaluation")
 from app.config import settings  # noqa: E402
 from app.rag import NO_RELEVANT_CONTEXT_ANSWER, is_declined_answer, query_rag  # noqa: E402
 from app.utils.embeddings import get_embeddings  # noqa: E402
+from app.utils.llm import (  # noqa: E402
+    FINISHED_STOP_REASONS,
+    describe_error,
+    llm_model_name,
+    missing_llm_credential,
+    preflight_chat_model,
+)
 from app.utils.logger import RequestContext  # noqa: E402
 
 DATASET_PATH = ROOT / "evaluation" / "answer_dataset.json"
@@ -67,7 +76,7 @@ JUDGE_MAX_TOKENS = 8192  # the Anthropic API requires max_tokens; RAGAS answers 
 # Claude Haiku 5.5 rejects non-default sampling parameters (the API answers 400), and RAGAS
 # sets a temperature on every judge it is given, so these are removed from the request.
 _SAMPLING_PARAMS = ("temperature", "top_p", "top_k")
-_FINISHED_STOP_REASONS = ("end_turn", "stop_sequence")
+_FINISHED_STOP_REASONS = FINISHED_STOP_REASONS
 PAUSE_SECONDS = 2.0  # keep under the provider's requests-per-minute limit
 RAGAS_METRICS = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
 
@@ -203,12 +212,6 @@ def judge_finished(result) -> bool:
     return True
 
 
-def _describe_error(exc: Exception) -> str:
-    """Error class and HTTP status only: provider messages are kept out of logs and reports."""
-    status = getattr(exc, "status_code", None)
-    return type(exc).__name__ + (f" (HTTP {status})" if status else "")
-
-
 def preflight_judge() -> str | None:
     """None when the judge is usable, otherwise why not. Runs before any generator tokens are spent."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -218,11 +221,11 @@ def preflight_judge() -> str | None:
 
         anthropic.Anthropic().models.retrieve(JUDGE_MODEL)  # free: availability for this account
     except Exception as exc:
-        return f"model {JUDGE_MODEL} could not be confirmed: {_describe_error(exc)}"
+        return f"model {JUDGE_MODEL} could not be confirmed: {describe_error(exc)}"
     try:
         reply = build_judge_model().invoke("Reply with the single word OK.")  # the exact judge configuration
     except Exception as exc:
-        return f"test call to {JUDGE_MODEL} failed: {_describe_error(exc)}"
+        return f"test call to {JUDGE_MODEL} failed: {describe_error(exc)}"
     if (getattr(reply, "response_metadata", None) or {}).get("stop_reason") not in _FINISHED_STOP_REASONS:
         return f"test call to {JUDGE_MODEL} did not finish normally"
     return None
@@ -336,8 +339,9 @@ def main() -> int:
     parser.add_argument("--limit", type=int, help="only the first N samples")
     args = parser.parse_args()
 
-    if not settings.GROQ_API_KEY:
-        print("GROQ_API_KEY is required (environment or .env).", file=sys.stderr)
+    missing = missing_llm_credential()
+    if missing:
+        print(f"{missing} is required for LLM_PROVIDER={settings.LLM_PROVIDER} (environment or .env).", file=sys.stderr)
         return 2
     if not args.no_ragas:
         problem = preflight_judge()
@@ -345,6 +349,12 @@ def main() -> int:
             print(f"RAGAS judge unavailable: {problem}.", file=sys.stderr)
             return 2
         print(f"Judge preflight passed: {JUDGE_MODEL}")
+    if not args.reuse:  # --reuse generates nothing, so the generator is not contacted
+        problem = preflight_chat_model()
+        if problem:
+            print(f"Generator unavailable: {problem}.", file=sys.stderr)
+            return 2
+        print(f"Generator: {settings.LLM_PROVIDER} / {llm_model_name()}")
 
     samples = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
     if args.ids:
@@ -355,7 +365,7 @@ def main() -> int:
     if args.limit:
         samples = samples[: args.limit]
 
-    print(f"Generating {len(samples)} answers with {settings.GROQ_MODEL} (cache off)")
+    print(f"Generating {len(samples)} answers with {llm_model_name()} (cache off)")
     rows = score_deterministic(samples, load_previous() if args.reuse else None)
 
     if not args.no_ragas:
@@ -400,7 +410,7 @@ def main() -> int:
 
     RESULTS_PATH.write_text(
         json.dumps(
-            {"generator": settings.GROQ_MODEL, "judge": None if args.no_ragas else JUDGE_MODEL, "summary": summary, "rows": rows},
+            {"generator": f"{settings.LLM_PROVIDER}/{llm_model_name()}", "judge": None if args.no_ragas else JUDGE_MODEL, "summary": summary, "rows": rows},
             indent=2,
             ensure_ascii=False,
         ),

@@ -37,6 +37,9 @@ os.environ["JWT_SECRET_KEY"] = "test-secret-key"
 os.environ["QUERY_REWRITING_ENABLED"] = "true"
 # A developer's .env may hold Langfuse keys; empty keys keep tracing off, so tests never
 # send traces (tracing tests switch it on with an in-memory exporter).
+# The provider is Groq unless a test says otherwise, whatever a developer's .env contains.
+os.environ["LLM_PROVIDER"] = "groq"
+os.environ["ANTHROPIC_API_KEY"] = ""
 os.environ["LANGFUSE_PUBLIC_KEY"] = ""
 os.environ["LANGFUSE_SECRET_KEY"] = ""
 os.environ["RETRIEVAL_VERSION"] = "v1"

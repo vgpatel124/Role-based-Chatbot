@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -14,8 +15,13 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 class Settings(BaseModel):
+    # Which provider answers questions (query rewriting and answer generation).
+    # Groq is the default; the evaluation workflow runs the chatbot on Anthropic.
+    LLM_PROVIDER: Literal["groq", "anthropic"] = Field(default="groq")
     GROQ_API_KEY: str = Field(default="")
     GROQ_MODEL: str = Field(default="openai/gpt-oss-120b")
+    ANTHROPIC_API_KEY: str = Field(default="")
+    ANTHROPIC_MODEL: str = Field(default="claude-haiku-5-5")
     JWT_SECRET_KEY: str = Field(default="finsolve-secret-key-change-in-production")
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRE_MINUTES: int = Field(default=30)
@@ -62,8 +68,11 @@ class Settings(BaseModel):
 
 
 settings = Settings(
+    LLM_PROVIDER=os.getenv("LLM_PROVIDER", "groq").strip().lower(),
     GROQ_API_KEY=os.getenv("GROQ_API_KEY", ""),
     GROQ_MODEL=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
+    ANTHROPIC_API_KEY=os.getenv("ANTHROPIC_API_KEY", ""),
+    ANTHROPIC_MODEL=os.getenv("ANTHROPIC_MODEL", "claude-haiku-5-5"),
     JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", "finsolve-secret-key-change-in-production"),
     JWT_ALGORITHM=os.getenv("JWT_ALGORITHM", "HS256"),
     JWT_EXPIRE_MINUTES=int(os.getenv("JWT_EXPIRE_MINUTES", "30")),

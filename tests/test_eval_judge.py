@@ -296,30 +296,45 @@ def _steps(workflow):
     return [s for s in workflow["jobs"]["evals"]["steps"] if "name" in s]
 
 
-def test_anthropic_secret_is_passed_to_the_ragas_step_only(workflow):
+LLM_STEPS = ["RBAC red-team (full pipeline with LLM)", "Answer quality (RAGAS, Claude Haiku judge)"]
+
+
+def test_anthropic_secret_is_passed_to_the_two_llm_backed_steps_only(workflow):
     holders = [s["name"] for s in _steps(workflow) if "ANTHROPIC_API_KEY" in (s.get("env") or {})]
 
-    assert holders == ["Answer quality (RAGAS, Claude Haiku judge)"]
-    step = next(s for s in _steps(workflow) if s["name"] == holders[0])
-    assert step["env"]["ANTHROPIC_API_KEY"] == "${{ secrets.ANTHROPIC_API_KEY }}"
+    assert holders == LLM_STEPS
+    for step in _steps(workflow):
+        if step["name"] in LLM_STEPS:
+            assert step["env"]["ANTHROPIC_API_KEY"] == "${{ secrets.ANTHROPIC_API_KEY }}"
+            assert step["env"]["LLM_PROVIDER"] == "anthropic"
     assert "ANTHROPIC_API_KEY" not in (workflow["jobs"]["evals"].get("env") or {})
     assert "ANTHROPIC_API_KEY" not in (workflow.get(True) or workflow.get("on") or {})
 
 
-def test_ragas_step_command_and_generator_credentials_are_unchanged(workflow):
-    step = next(s for s in _steps(workflow) if s["name"].startswith("Answer quality"))
+def test_the_evals_workflow_does_not_use_groq(workflow):
+    """Groq's free-tier daily limit kept stopping the evaluation; the chatbot now runs on Anthropic here."""
+    lines = (ROOT / ".github" / "workflows" / "evals.yml").read_text(encoding="utf-8").splitlines()
+    code = [line for line in lines if not line.lstrip().startswith("#")]
 
-    assert step["run"] == "python evaluation/evaluate_answers.py --check --ragas-limit 12"
-    assert step["env"]["GROQ_API_KEY"] == "${{ secrets.GROQ_API_KEY }}"
-    assert step["if"] == "env.HAS_GROQ_KEY == 'true'"
+    assert not [line for line in code if "GROQ" in line.upper()]
 
 
-def test_red_team_steps_still_use_groq_only(workflow):
+def test_llm_steps_run_unless_the_pr_is_from_a_fork_so_a_missing_secret_fails_loudly(workflow):
     steps = {s["name"]: s for s in _steps(workflow)}
 
-    assert steps["RBAC red-team (full pipeline with LLM)"]["env"] == {"GROQ_API_KEY": "${{ secrets.GROQ_API_KEY }}"}
+    for name in LLM_STEPS:
+        assert steps[name]["if"] == "env.IS_FORK_PR != 'true'"  # no 'secret present' gate that could skip silently
+    assert "IS_FORK_PR" in workflow["jobs"]["evals"]["env"]
+
+
+def test_llm_step_commands_are_unchanged(workflow):
+    steps = {s["name"]: s for s in _steps(workflow)}
+
+    assert steps["Answer quality (RAGAS, Claude Haiku judge)"]["run"] == (
+        "python evaluation/evaluate_answers.py --check --ragas-limit 12"
+    )
     assert steps["RBAC red-team (full pipeline with LLM)"]["run"] == "python evaluation/redteam.py --llm"
-    assert "env" not in steps["RBAC red-team (retrieval and reranker)"]
+    assert "env" not in steps["RBAC red-team (retrieval and reranker)"]  # needs no key at all
 
 
 def test_no_credential_value_is_written_in_the_workflow_or_the_eval_sources():
@@ -349,7 +364,8 @@ def test_thresholds_are_unchanged():
     assert json.loads((ROOT / "evaluation" / "thresholds.json").read_text(encoding="utf-8")) == expected
 
 
-def test_judge_dependency_is_pinned_for_the_eval_install():
-    requirements = (ROOT / "requirements-eval.txt").read_text(encoding="utf-8")
+def test_anthropic_client_is_pinned_in_the_runtime_requirements():
+    """The chatbot can run on Anthropic (LLM_PROVIDER), so the client is a runtime dependency."""
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
 
     assert re.search(r"^langchain-anthropic==\d+\.\d+\.\d+$", requirements, re.MULTILINE)

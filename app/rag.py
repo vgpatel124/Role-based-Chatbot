@@ -5,8 +5,8 @@ from typing import Any
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_groq import ChatGroq
 
 from app.config import settings
 from app.services.bm25_retriever import bm25_retriever
@@ -18,6 +18,7 @@ from app.services.retrieval_policy import get_policy
 from app.services.rrf import fuse_across_collections, reciprocal_rank_fusion
 from app.services.session_store import session_store
 from app.utils.embeddings import get_embeddings
+from app.utils.llm import build_chat_model, message_text
 from app.utils.logger import RequestContext, get_logger
 from app.utils.tracing import llm_invoke, observation, score
 
@@ -62,13 +63,9 @@ _vectorstores_lock = threading.Lock()
 
 
 @lru_cache(maxsize=1)
-def get_llm() -> ChatGroq:
-    """Groq chat model shared by query rewriting and answer generation."""
-    return ChatGroq(
-        groq_api_key=settings.GROQ_API_KEY,
-        model_name=settings.GROQ_MODEL,
-        temperature=0.2,
-    )
+def get_llm() -> BaseChatModel:
+    """Chat model shared by query rewriting and answer generation (see app/utils/llm.py)."""
+    return build_chat_model()
 
 
 def _get_vectorstore(collection_name: str, embeddings) -> Chroma:
@@ -368,7 +365,7 @@ def _answer_question(
     )
     ctx.latency_ms["llm"] = (time.perf_counter() - t0) * 1000
 
-    answer_text = response.content if isinstance(response.content, str) else str(response.content)
+    answer_text = message_text(response)
     if not answer_text.strip():
         answer_text = DECLINED_ANSWER
 
