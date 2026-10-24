@@ -22,3 +22,10 @@ rank-bm25
 # Redis Stack semantic cache
 redis
 redisvl
+
+# Langfuse tracing (app/utils/tracing.py); needs Python 3.11+
+langfuse>=5,<6
+
+# Anthropic as an LLM provider (LLM_PROVIDER=anthropic) and as the RAGAS judge. Tested with this
+# version; it brings the `anthropic` SDK.
+langchain-anthropic==1.7.6

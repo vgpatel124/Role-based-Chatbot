@@ -23,12 +23,19 @@ RAGAS metrics, scored by a judge LLM (answerable, non-declined samples only):
     context_precision   retrieved chunks that are relevant, with relevant ones ranked first
     context_recall      share of the reference answer that the retrieved context supports
 
-The judge is a different model family from the generator on purpose
-(EVAL_JUDGE_MODEL, default Alibaba's qwen3 vs. the app's OpenAI gpt-oss), so the
-generator does not grade its own work.
+The judge is Anthropic's Claude Haiku (EVAL_JUDGE_MODEL, default claude-haiku-5-5), a
+different model family from the generator (OpenAI gpt-oss on Groq), so the generator does
+not grade its own work. It needs ANTHROPIC_API_KEY, which is only used by this script.
 
-Both models are rate limited (Groq free tier: 8,000 tokens/minute), so a full
-run takes tens of minutes; --reuse and --ragas-limit keep iteration cheap.
+Before any answer is generated, a free preflight confirms the key works and the judge
+model exists for the account, then makes one tiny test call with the exact judge
+configuration. A missing key, an unavailable model or a provider error stops the run with
+exit status 2; it is never treated as a pass, and no generator tokens are spent first.
+
+The generator is the chatbot's own LLM (LLM_PROVIDER: Groq by default, Anthropic in the
+Evals workflow). On Groq's free tier it is rate limited (8,000 tokens/minute, 200,000/day), so
+a full run takes tens of minutes and can run out of quota; --reuse and --ragas-limit keep
+iteration cheap.
 """
 
 import argparse
@@ -45,17 +52,31 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 os.environ["CACHE_ENABLED"] = "false"  # measure the pipeline, not yesterday's answers
+# If Langfuse tracing is configured, keep these runs apart from real traffic.
+os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", "evaluation")
 
 from app.config import settings  # noqa: E402
 from app.rag import NO_RELEVANT_CONTEXT_ANSWER, is_declined_answer, query_rag  # noqa: E402
 from app.utils.embeddings import get_embeddings  # noqa: E402
+from app.utils.llm import (  # noqa: E402
+    FINISHED_STOP_REASONS,
+    describe_error,
+    llm_model_name,
+    missing_llm_credential,
+    preflight_chat_model,
+)
 from app.utils.logger import RequestContext  # noqa: E402
 
 DATASET_PATH = ROOT / "evaluation" / "answer_dataset.json"
 THRESHOLDS_PATH = ROOT / "evaluation" / "thresholds.json"
 RESULTS_PATH = ROOT / "evaluation" / "answer_results.json"
 
-JUDGE_MODEL = os.getenv("EVAL_JUDGE_MODEL", "qwen/qwen3.8-27b")
+JUDGE_MODEL = os.getenv("EVAL_JUDGE_MODEL", "claude-haiku-5-5")
+JUDGE_MAX_TOKENS = 8192  # the Anthropic API requires max_tokens; RAGAS answers are short JSON
+# Claude Haiku 5.5 rejects non-default sampling parameters (the API answers 400), and RAGAS
+# sets a temperature on every judge it is given, so these are removed from the request.
+_SAMPLING_PARAMS = ("temperature", "top_p", "top_k")
+_FINISHED_STOP_REASONS = FINISHED_STOP_REASONS
 PAUSE_SECONDS = 2.0  # keep under the provider's requests-per-minute limit
 RAGAS_METRICS = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
 
@@ -166,9 +187,52 @@ def score_deterministic(samples: list[dict], previous: dict[str, dict] | None = 
     return rows
 
 
+def build_judge_model():
+    """Claude Haiku as a LangChain chat model. The key is read from ANTHROPIC_API_KEY by the SDK."""
+    from langchain_anthropic import ChatAnthropic
+
+    class JudgeChatAnthropic(ChatAnthropic):
+        def _get_request_payload(self, *args, **kwargs):
+            payload = super()._get_request_payload(*args, **kwargs)
+            for key in _SAMPLING_PARAMS:
+                payload.pop(key, None)
+            return payload
+
+    return JudgeChatAnthropic(model=JUDGE_MODEL, max_tokens=JUDGE_MAX_TOKENS)
+
+
+def judge_finished(result) -> bool:
+    """RAGAS 'did the judge finish?' hook. Anthropic reports why it stopped; only a natural end
+    counts, because a max_tokens cut leaves truncated JSON that must not be scored."""
+    for generations in result.generations:
+        for generation in generations:
+            metadata = getattr(getattr(generation, "message", None), "response_metadata", None) or {}
+            if metadata.get("stop_reason") not in _FINISHED_STOP_REASONS:
+                return False
+    return True
+
+
+def preflight_judge() -> str | None:
+    """None when the judge is usable, otherwise why not. Runs before any generator tokens are spent."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return "ANTHROPIC_API_KEY is not set (environment or repository secret)"
+    try:
+        import anthropic
+
+        anthropic.Anthropic().models.retrieve(JUDGE_MODEL)  # free: availability for this account
+    except Exception as exc:
+        return f"model {JUDGE_MODEL} could not be confirmed: {describe_error(exc)}"
+    try:
+        reply = build_judge_model().invoke("Reply with the single word OK.")  # the exact judge configuration
+    except Exception as exc:
+        return f"test call to {JUDGE_MODEL} failed: {describe_error(exc)}"
+    if (getattr(reply, "response_metadata", None) or {}).get("stop_reason") not in _FINISHED_STOP_REASONS:
+        return f"test call to {JUDGE_MODEL} did not finish normally"
+    return None
+
+
 def run_ragas(rows: list[dict], limit: int | None = None) -> int:
     """Add RAGAS scores to the rows that can be judged. Returns how many were judged."""
-    from langchain_groq import ChatGroq
     from ragas import EvaluationDataset, RunConfig, evaluate
     from ragas.dataset_schema import SingleTurnSample
     from ragas.embeddings import LangchainEmbeddingsWrapper
@@ -193,13 +257,15 @@ def run_ragas(rows: list[dict], limit: int | None = None) -> int:
             for r in judged
         ]
     )
-    judge = LangchainLLMWrapper(ChatGroq(model=JUDGE_MODEL, temperature=0, groq_api_key=settings.GROQ_API_KEY))
+    judge = LangchainLLMWrapper(
+        build_judge_model(), bypass_temperature=True, bypass_n=True, is_finished_parser=judge_finished
+    )
     embeddings = LangchainEmbeddingsWrapper(get_embeddings())
     result = evaluate(
         dataset,
         metrics=[
             Faithfulness(),
-            # Groq rejects n>1 completions, which strictness>1 needs.
+            # One completion per call; strictness>1 would need several (n>1).
             ResponseRelevancy(strictness=1),
             LLMContextPrecisionWithReference(),
             LLMContextRecall(),
@@ -273,9 +339,22 @@ def main() -> int:
     parser.add_argument("--limit", type=int, help="only the first N samples")
     args = parser.parse_args()
 
-    if not settings.GROQ_API_KEY:
-        print("GROQ_API_KEY is required (environment or .env).", file=sys.stderr)
+    missing = missing_llm_credential()
+    if missing:
+        print(f"{missing} is required for LLM_PROVIDER={settings.LLM_PROVIDER} (environment or .env).", file=sys.stderr)
         return 2
+    if not args.no_ragas:
+        problem = preflight_judge()
+        if problem:
+            print(f"RAGAS judge unavailable: {problem}.", file=sys.stderr)
+            return 2
+        print(f"Judge preflight passed: {JUDGE_MODEL}")
+    if not args.reuse:  # --reuse generates nothing, so the generator is not contacted
+        problem = preflight_chat_model()
+        if problem:
+            print(f"Generator unavailable: {problem}.", file=sys.stderr)
+            return 2
+        print(f"Generator: {settings.LLM_PROVIDER} / {llm_model_name()}")
 
     samples = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
     if args.ids:
@@ -286,7 +365,7 @@ def main() -> int:
     if args.limit:
         samples = samples[: args.limit]
 
-    print(f"Generating {len(samples)} answers with {settings.GROQ_MODEL} (cache off)")
+    print(f"Generating {len(samples)} answers with {llm_model_name()} (cache off)")
     rows = score_deterministic(samples, load_previous() if args.reuse else None)
 
     if not args.no_ragas:
@@ -331,7 +410,7 @@ def main() -> int:
 
     RESULTS_PATH.write_text(
         json.dumps(
-            {"generator": settings.GROQ_MODEL, "judge": None if args.no_ragas else JUDGE_MODEL, "summary": summary, "rows": rows},
+            {"generator": f"{settings.LLM_PROVIDER}/{llm_model_name()}", "judge": None if args.no_ragas else JUDGE_MODEL, "summary": summary, "rows": rows},
             indent=2,
             ensure_ascii=False,
         ),

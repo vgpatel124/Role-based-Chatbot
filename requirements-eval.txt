@@ -9,3 +9,5 @@ huggingface-hub>=1.5,<2
 # 0.4.2 removed. A fresh install picked 0.4.2 and the GitHub Evals run failed at import;
 # 0.4.1 is the version this was verified with.
 langchain-community==0.4.1
+# langchain-anthropic (the RAGAS judge, and the chatbot's provider in the Evals workflow) is
+# pinned in requirements.txt.

@@ -1,5 +1,6 @@
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +25,7 @@ from app.services.reranker import reranker  # noqa: F401
 from app.services.session_store import session_store  # noqa: F401
 from app.utils.embeddings import get_embeddings
 from app.utils.logger import RequestContext, get_logger, log_request_context
+from app.utils.tracing import request_attributes, shutdown_tracing
 
 logger = get_logger(__name__)
 
@@ -31,7 +33,16 @@ logger = get_logger(__name__)
 # loading it inside the cache lookup.
 get_embeddings()
 
-app = FastAPI(title="FinSolve RBAC RAG API", version="1.0.0")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    yield
+    # Send any traces still queued before the process exits.
+    shutdown_tracing()
+
+
+app = FastAPI(title="FinSolve RBAC RAG API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,9 +90,10 @@ def chat(payload: ChatRequest, response: Response, user=Depends(get_current_user
         # History is keyed per user, so a session_id supplied by another user
         # can never read or append to someone else's conversation.
         history_key = f"{user.username}:{session_id}"
-        result = query_rag(
-            question=payload.question, role=user.role, session_id=history_key, ctx=ctx
-        )
+        with request_attributes(user_id=user.username, session_id=history_key, role=user.role):
+            result = query_rag(
+                question=payload.question, role=user.role, session_id=history_key, ctx=ctx
+            )
         return ChatResponse(
             answer=result["answer"],
             sources=result["sources"],

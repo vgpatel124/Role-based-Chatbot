@@ -46,6 +46,7 @@ def get_logger(name: str) -> logging.Logger:
 @dataclass
 class RequestContext:
     request_id: str = ""
+    trace_id: str = ""  # Langfuse trace for this request, empty when tracing is off
     session_id: str = ""
     user_role: str = ""
     authorized_collections: list[str] = field(default_factory=list)

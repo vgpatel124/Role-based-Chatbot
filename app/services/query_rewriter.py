@@ -8,11 +8,13 @@ from the user's role, so a rewritten query can never widen access.
 
 import re
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_groq import ChatGroq
 
 from app.services.session_store import ChatMessage
+from app.utils.llm import message_text
 from app.utils.logger import get_logger
+from app.utils.tracing import llm_invoke
 
 logger = get_logger(__name__)
 
@@ -48,7 +50,7 @@ def needs_rewriting(question: str, history: list[ChatMessage]) -> bool:
     return False
 
 
-def rewrite_query(question: str, history: list[ChatMessage], llm: ChatGroq) -> str:
+def rewrite_query(question: str, history: list[ChatMessage], llm: BaseChatModel) -> str:
     history_text = "\n".join(f"{msg['role'].upper()}: {msg['content']}" for msg in history[-6:])
 
     system_prompt = (
@@ -69,9 +71,10 @@ def rewrite_query(question: str, history: list[ChatMessage], llm: ChatGroq) -> s
     )
 
     try:
-        response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)])
-        content = response.content if isinstance(response.content, str) else str(response.content)
-        rewritten = content.strip()
+        response = llm_invoke(
+            llm, [SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)], "rewrite-query"
+        )
+        rewritten = message_text(response).strip()
         if not rewritten:
             return question
         return rewritten

@@ -69,8 +69,11 @@ For *"Which marketing campaign performed best in Q2 2024?"* this moved the Q2 Ca
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GROQ_API_KEY` | *(none)* | Groq API key used for answers and query rewriting |
+| `LLM_PROVIDER` | `groq` | `groq` or `anthropic`; built in `app/utils/llm.py`, which also reads Claude's block-list replies and sends no sampling parameters to Claude (Claude Haiku 5.5 rejects them) |
+| `GROQ_API_KEY` | *(none)* | Groq API key used for answers and query rewriting (`LLM_PROVIDER=groq`) |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq chat model for answers and query rewriting |
+| `ANTHROPIC_API_KEY` | *(none)* | Anthropic API key (`LLM_PROVIDER=anthropic`, and the RAGAS judge) |
+| `ANTHROPIC_MODEL` | `claude-haiku-5-5` | Claude model for answers and query rewriting |
 | `JWT_SECRET_KEY` | `finsolve-secret-key-change-in-production` | HMAC secret used to sign JWTs — change it |
 | `JWT_EXPIRE_MINUTES` | `30` | Token lifetime in minutes |
 | `CHROMA_DB_PATH` | `./chroma_db` | ChromaDB directory; BM25 JSON lives in `bm25_docs/` inside it |
@@ -166,6 +169,23 @@ Blending rank signals and widening hybrid retrieval are worse everywhere, and th
 ### Conflicting figures across documents
 
 `financial_summary.md` gives FY2024 vendor services as $30M (+18%; marketing 40%, training 30%, software 25%); `quarterly_financial_report.md` gives about $510M (four quarterly "Vendor Services" lines of $120M-$135M). They are the same line item at different scales (the two reports also disagree on revenue growth, 25% vs 28%, and operating cash flow, $50M vs $1.5B) and neither defines a scope, so both are kept. Retrieval already ranks the correct annual-breakdown chunk first; what failed was generation, where the model silently chose $510M. The system prompt now requires that when sources give different values for the same figure, each value is reported with its document and the difference is stated. `fin_vendor_drivers` in the answer evaluation checks the amount, growth rate, all three drivers and the cited source; `tests/test_conflicting_sources.py` checks the prompt rule and that both sources reach the LLM with their labels while staying inside the role's authorized collections.
+
+## Observability (Langfuse tracing)
+
+Implemented in `app/utils/tracing.py` and wired into `app/rag.py` and `app/main.py`; the trace layout and settings are in the [README](../README.md#observability-langfuse). Decisions worth knowing:
+
+- **Content is withheld by default, enforced at export.** A `mask_otel_spans` hook deletes every input/output attribute (Langfuse and the OpenTelemetry GenAI names) from every span unless `LANGFUSE_CAPTURE_CONTENT=true`, so privacy does not depend on each call site remembering not to record a prompt, and it covers the LangChain callback handler too. Call sites record the question, answer and prompts normally; the hook decides what leaves. Metadata set by the code is limited to names, counts, numbers and file names. The same hook scrubs JWTs, API keys, e-mail addresses and provider account ids from whatever is exported.
+- **Exception text never reaches Langfuse.** The SDK exports an exception's message and stack trace as span events and the status description, which the masking hook cannot alter, and messages can echo question or document text. The context manager in `tracing.py` and a subclass of the LangChain handler therefore record only the error class (and HTTP status for provider errors) and mark the observation `ERROR`; the full detail stays in the application log.
+- **One trace per chat turn, one session per user conversation.** Following Langfuse's guidance for chatbots; the session id is `<username>:<session_id>`, the same key as the conversation history, so one user cannot attach traces to another's session.
+- **Fixed, verb-first names; run-specific values in metadata** (`search-collection` with a `collection` field, not one name per collection). Names are what evaluators and dashboards target, so they should not change.
+- **Integration where it helps, manual where it must.** The LLM calls use Langfuse's LangChain callback handler (model, tokens including reasoning tokens, latency); retrieval steps are manual `retriever` spans because they are custom code.
+- **Trace id derived from `X-Request-ID`**, so any request can be found without storing an id, and the request log line carries it.
+- **Fail-open.** No keys means no SDK import and no overhead; every SDK call is guarded; Langfuse being unreachable only drops traces. Steps that run outside a trace (scripts calling `retrieve_for_collections` directly) create nothing.
+- **Evaluation runs** (`evaluate_answers.py`, `redteam.py`) default `LANGFUSE_TRACING_ENVIRONMENT` to `evaluation`.
+
+Tests (`tests/test_tracing.py`) run the real pipeline against an in-memory exporter and assert on the exported spans: structure, types, nesting, attributes, scores, the withheld-content guarantee, scrubbing, exception handling and fail-open behaviour. The trace layout was also verified against a live Langfuse project by fetching the traces back through the v2 observations API (the older traces endpoint is being removed on 2026-11-16).
+
+Requires Python 3.11+ (the Langfuse SDK's floor); `langfuse>=5,<6` needs OpenTelemetry 1.45, and the ChromaDB gRPC exporter pins its own OpenTelemetry version. When installing into an environment that already has an older exporter, `pip check` reports the conflict and upgrading `opentelemetry-exporter-otlp-proto-grpc` to the same 1.45.x line clears it (this was needed locally).
 
 ## Detailed limitations
 
