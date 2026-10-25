@@ -145,3 +145,41 @@ def test_other_users_history_is_never_used(client, auth_header, mock_llm, mock_c
     assert len(session_store.get_history("alice:shared")) == 2
     rewrite_calls = [c for c in mock_llm.invoke.call_args_list if "Conversation history" in c[0][0][1].content]
     assert rewrite_calls == []
+
+
+# --- rewrite output hygiene --------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("What was the Q4 gross margin?", "What was the Q4 gross margin?"),
+        ('"What was the Q4 gross margin?"', "What was the Q4 gross margin?"),
+        ("Rewritten question: What was the Q4 gross margin?", "What was the Q4 gross margin?"),
+        ("What was the Q4 gross margin?\nThis rewrites the follow-up using the earlier topic.", "What was the Q4 gross margin?"),
+        ("\n\n  What was the Q4 gross margin?  \n", "What was the Q4 gross margin?"),
+    ],
+)
+def test_rewrite_output_is_cleaned_to_one_question(raw, expected):
+    llm = SimpleNamespace(invoke=lambda messages: SimpleNamespace(content=raw))
+    assert rewrite_query("And Q4?", HISTORY, llm) == expected
+
+
+def test_a_rewrite_that_is_really_an_essay_falls_back_to_the_original():
+    essay = "The gross margin in Q4 was influenced by many factors " * 20
+    llm = SimpleNamespace(invoke=lambda messages: SimpleNamespace(content=essay))
+    assert rewrite_query("And Q4?", HISTORY, llm) == "And Q4?"
+
+
+def test_rewrite_prompt_forbids_answering_and_inventing_facts():
+    seen = {}
+
+    def invoke(messages):
+        seen["system"] = messages[0].content
+        return SimpleNamespace(content="What about Q4 revenue?")
+
+    rewrite_query("And Q4?", HISTORY, SimpleNamespace(invoke=invoke))
+    prompt = seen["system"].lower()
+    assert "do not answer" in prompt
+    assert "exactly as written" in prompt
+    assert "single line" in prompt

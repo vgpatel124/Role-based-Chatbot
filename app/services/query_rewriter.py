@@ -50,18 +50,40 @@ def needs_rewriting(question: str, history: list[ChatMessage]) -> bool:
     return False
 
 
+MAX_REWRITE_GROWTH = 6  # a rewrite is a short question, not an answer or an essay
+_REWRITE_PREFIX = re.compile(r"^(rewritten question|rewritten|question)\s*:\s*", re.IGNORECASE)
+
+
+def _clean_rewrite(raw: str, question: str) -> str:
+    """The rewritten question, or the original when the model's output is not a usable question.
+
+    Models sometimes wrap the question in quotes or a label, or answer instead of
+    rewriting. Only the first line is used, and a result far longer than the
+    original is treated as an answer, not a rewrite.
+    """
+    lines = [line.strip() for line in raw.strip().splitlines() if line.strip()]
+    if not lines:
+        return question
+    rewritten = _REWRITE_PREFIX.sub("", lines[0]).strip().strip("\"'`").strip()
+    if not rewritten or len(rewritten) > max(200, MAX_REWRITE_GROWTH * len(question)):
+        return question
+    return rewritten
+
+
 def rewrite_query(question: str, history: list[ChatMessage], llm: BaseChatModel) -> str:
     history_text = "\n".join(f"{msg['role'].upper()}: {msg['content']}" for msg in history[-6:])
 
     system_prompt = (
-        "You are a query rewriting assistant. "
-        "Given a conversation history and a follow-up question, "
-        "rewrite the follow-up question to be completely "
-        "self-contained so it can be understood without the "
-        "conversation history. If the question is already "
-        "self-contained, return it exactly as is. "
-        "Return ONLY the rewritten question, nothing else. "
-        "No explanation, no preamble."
+        "You rewrite a follow-up question so it can be understood without the conversation history. "
+        "Replace pronouns and references (it, that, those, the same, the previous one) with the exact "
+        "subject they refer to in the history. "
+        "Keep every name, number, date, period and unit from the follow-up question and from the history "
+        "that the question depends on, exactly as written. "
+        "Do not answer the question, do not add facts, assumptions or new topics, and do not "
+        "broaden or narrow what is asked. "
+        "If the question is already self-contained, return it exactly as is. "
+        "Return ONLY the rewritten question on a single line. "
+        "No explanation, no preamble, no quotation marks."
     )
 
     human_prompt = (
@@ -74,10 +96,7 @@ def rewrite_query(question: str, history: list[ChatMessage], llm: BaseChatModel)
         response = llm_invoke(
             llm, [SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)], "rewrite-query"
         )
-        rewritten = message_text(response).strip()
-        if not rewritten:
-            return question
-        return rewritten
+        return _clean_rewrite(message_text(response), question)
     except Exception:
         # Fallback to original question on any failure
         logger.warning("Query rewriting failed, using original question", exc_info=True)
