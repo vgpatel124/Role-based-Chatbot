@@ -264,12 +264,12 @@ Measured: **0 leaks in 160/160 attacks**, and with the LLM in the loop **160/160
 
 ```bash
 pip install -r requirements-eval.txt
-python evaluation/evaluate_answers.py            # full run (on the free Groq tier: 8,000 tokens/min, 200,000/day)
-python evaluation/evaluate_answers.py --reuse --ragas-limit 12   # re-score saved answers, judge a subset
+python evaluation/evaluate_answers.py            # full run: every answerable question is judged
+python evaluation/evaluate_answers.py --reuse --ragas-limit 12   # re-score saved answers, judging an evenly spaced subset (cheap local runs)
 python evaluation/evaluate_answers.py --check    # exit 1 if below evaluation/thresholds.json
 ```
 
-[evaluation/answer_dataset.json](evaluation/answer_dataset.json) has 41 answerable questions with reference answers (every department, plus c-level cross-department questions) and 6 out-of-scope questions that must be declined. Scored without a judge: refusal accuracy, expected-fact coverage, source hit rate. Scored by [RAGAS](https://docs.ragas.io) with a judge from a different model family than the generator (Claude Haiku, `claude-haiku-5-5`, judging gpt-oss): faithfulness, answer relevancy, context precision, context recall.
+[evaluation/answer_dataset.json](evaluation/answer_dataset.json) has 103 answerable questions with reference answers (every department, plus c-level cross-department questions) and 9 out-of-scope questions that must be declined. The CI gate judges every answerable question. A test ([tests/test_eval_dataset.py](tests/test_eval_dataset.py)) checks that each question's keywords and the numbers in its reference appear verbatim in the source documents, that the 62 questions added after the first 41 carry a verbatim `evidence` excerpt, and that a role is only asked about files it may read. Scored without a judge: refusal accuracy, expected-fact coverage, source hit rate. Scored by [RAGAS](https://docs.ragas.io) with Claude Haiku (`claude-haiku-5-5`) as the judge: faithfulness, answer relevancy, context precision, context recall.
 
 **Providers.** The chatbot's own LLM is chosen by `LLM_PROVIDER` (`groq`, the default, or `anthropic`; the Anthropic model is `ANTHROPIC_MODEL`, default `claude-haiku-5-5`). Production is unchanged and stays on Groq unless you set the variable. The Evals workflow sets `LLM_PROVIDER=anthropic`, so there the generator, the LLM red-team's target and the RAGAS judge all run on the Anthropic API and the workflow no longer touches Groq or its free-tier quota. Locally, `LLM_PROVIDER` defaults to Groq, so a local run of these scripts uses Groq unless you set it.
 
@@ -277,7 +277,7 @@ python evaluation/evaluate_answers.py --check    # exit 1 if below evaluation/th
 
 **Caveat: the judge and the generator are the same model** (`claude-haiku-5-5`), so the model grades its own answers, which tends to flatter it. They are separate settings (`ANTHROPIC_MODEL`, `EVAL_JUDGE_MODEL`) if you want a different judge. The answers were also written for a different model: the prompts and the thresholds were tuned against `gpt-oss-120b`.
 
-Measured on the production pipeline (gpt-oss-120b on Groq, all 47 questions regenerated; RAGAS metrics on 12 evenly spaced answers, the same subset the CI gate uses). **These scores come from the Groq-era setup (Qwen as judge): the generator and the judge have since changed, the figures have not been re-measured with Claude, and the thresholds, unchanged, have not been checked against it.**
+Measured on the production pipeline (gpt-oss-120b on Groq, all 47 questions regenerated; RAGAS metrics on 12 evenly spaced answers, which was the CI gate at the time). **These scores come from the Groq-era setup (Qwen as judge): the generator and the judge have since changed, the figures have not been re-measured with Claude, and the thresholds, unchanged, have not been checked against it.**
 
 | Metric | Score | | Metric | Score |
 |--------|-------|-|--------|-------|

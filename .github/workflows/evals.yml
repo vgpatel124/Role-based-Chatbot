@@ -69,13 +69,14 @@ jobs:
         run: python evaluation/redteam.py --llm
 
       # Generator, red-team target and RAGAS judge are all Claude Haiku via the Anthropic API.
+      # Every answerable question is judged (no --ragas-limit): a 12-sample subset was too noisy to gate on.
       # The script exits non-zero before generating anything if the key is missing or rejected.
       - name: Answer quality (RAGAS, Claude Haiku judge)
         if: env.IS_FORK_PR != 'true'
         env:
           LLM_PROVIDER: anthropic
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python evaluation/evaluate_answers.py --check --ragas-limit 12
+        run: python evaluation/evaluate_answers.py --check
 
       - name: Publish results
         if: always()

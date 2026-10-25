@@ -330,9 +330,8 @@ def test_llm_steps_run_unless_the_pr_is_from_a_fork_so_a_missing_secret_fails_lo
 def test_llm_step_commands_are_unchanged(workflow):
     steps = {s["name"]: s for s in _steps(workflow)}
 
-    assert steps["Answer quality (RAGAS, Claude Haiku judge)"]["run"] == (
-        "python evaluation/evaluate_answers.py --check --ragas-limit 12"
-    )
+    # Every answerable question is judged: no --ragas-limit subset (12 samples was too noisy to gate on).
+    assert steps["Answer quality (RAGAS, Claude Haiku judge)"]["run"] == "python evaluation/evaluate_answers.py --check"
     assert steps["RBAC red-team (full pipeline with LLM)"]["run"] == "python evaluation/redteam.py --llm"
     assert "env" not in steps["RBAC red-team (retrieval and reranker)"]  # needs no key at all
 
