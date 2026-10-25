@@ -120,3 +120,15 @@ def test_the_human_prompt_repeats_the_instruction_after_the_context(conflicting_
 
     assert human_message.startswith("Question: ")
     assert human_message.rstrip().endswith(rag.ANSWER_REMINDER)
+
+
+def test_returned_contexts_are_the_blocks_the_llm_saw_including_the_file_name(conflicting_finance_corpus, mock_llm):
+    mock_llm.invoke.return_value.content = "answer"
+    result = rag.query_rag("What was the annual revenue?", "finance", return_contexts=True)
+
+    human_message = mock_llm.invoke.call_args.args[0][1].content
+
+    assert result["contexts"]
+    for block in result["contexts"]:
+        assert block.startswith("Source: ")
+        assert block in human_message  # so an evaluator judges the answer against what the model really had

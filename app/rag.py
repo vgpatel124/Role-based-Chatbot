@@ -79,6 +79,11 @@ def get_llm() -> BaseChatModel:
     return build_chat_model()
 
 
+def format_context_block(doc: Document) -> str:
+    """One chunk exactly as the LLM sees it, with the file it came from."""
+    return f"Source: {doc.metadata.get('source', 'unknown')}\nContent:\n{doc.page_content}"
+
+
 def _dedupe_documents(docs: list[Document]) -> list[Document]:
     """Drop repeated chunks (same source and text) but keep the reranker's order.
 
@@ -369,12 +374,8 @@ def _answer_question(
     relevant_docs = _dedupe_documents(reranked_docs + resolved_docs)
     sources = sorted({doc.metadata.get("source", "unknown") for doc in relevant_docs})
 
-    context = "\n\n".join(
-        [
-            f"Source: {doc.metadata.get('source', 'unknown')}\nContent:\n{doc.page_content}"
-            for doc in relevant_docs
-        ]
-    )
+    context_blocks = [format_context_block(doc) for doc in relevant_docs]
+    context = "\n\n".join(context_blocks)
     if not context.strip():
         return {"answer": "I don't have access to that information", "sources": []}
 
@@ -413,5 +414,5 @@ def _answer_question(
     if not declined:
         semantic_cache.set(retrieval_query, role, collections, result)
     if return_contexts:
-        return {**result, "contexts": [doc.page_content for doc in relevant_docs]}
+        return {**result, "contexts": context_blocks}
     return result
