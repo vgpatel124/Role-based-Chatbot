@@ -614,5 +614,1053 @@
     "reference": "",
     "expected_sources": [],
     "keywords": []
+  },
+  {
+    "id": "gen_epf",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What percentage do the employer and the employee each contribute to the Provident Fund?",
+    "reference": "Both employer and employee contribute 12% to the Employees' Provident Fund.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "12%"
+    ],
+    "evidence": [
+      "12% employer & employee contribution; as per EPF Act, 1952"
+    ]
+  },
+  {
+    "id": "gen_gratuity",
+    "role": "employee",
+    "type": "answerable",
+    "question": "After how many years of continuous service is gratuity payable?",
+    "reference": "Gratuity is payable after 5 years of continuous service.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "5 years"
+    ],
+    "evidence": [
+      "Payable after 5 years of continuous service"
+    ]
+  },
+  {
+    "id": "gen_esi_limit",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What is the monthly earnings limit for Employee State Insurance eligibility?",
+    "reference": "ESI applies to employees earning up to ₹21,000 per month.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "₹21,000"
+    ],
+    "evidence": [
+      "For employees earning ≤ ₹21,000/month"
+    ]
+  },
+  {
+    "id": "gen_casual_leave",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How many days of casual leave do employees get each year?",
+    "reference": "Employees get 7 days of casual leave per year (state-specific).",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "7 days"
+    ],
+    "evidence": [
+      "7 days/year (state-specific)"
+    ]
+  },
+  {
+    "id": "gen_leave_notice",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How far in advance must leave be applied for?",
+    "reference": "Leave should be applied for at least 3 days in advance, except in emergencies.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "3 days"
+    ],
+    "evidence": [
+      "Apply via HRMS/leave portal at least 3 days in advance (except emergencies)."
+    ]
+  },
+  {
+    "id": "gen_late_arrivals",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How many late arrivals in a month can lead to disciplinary action?",
+    "reference": "Three or more late arrivals in a month may attract disciplinary action.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "three or more|3 or more"
+    ],
+    "evidence": [
+      "Three or more late arrivals in a month may attract disciplinary action."
+    ]
+  },
+  {
+    "id": "gen_dress_friday",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What is the dress code on Fridays?",
+    "reference": "Smart casuals or ethnic wear are allowed on Fridays and special occasions.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "smart casual",
+      "ethnic wear"
+    ],
+    "evidence": [
+      "Smart casuals or ethnic wear on Fridays and special occasions."
+    ]
+  },
+  {
+    "id": "gen_complaint_days",
+    "role": "employee",
+    "type": "answerable",
+    "question": "Within how many days are formal complaints investigated and resolved?",
+    "reference": "Formal complaints are investigated impartially and resolved within 30 days.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "30 days"
+    ],
+    "evidence": [
+      "Formal complaints investigated impartially and resolved within 30 days."
+    ]
+  },
+  {
+    "id": "gen_salary_credit",
+    "role": "employee",
+    "type": "answerable",
+    "question": "On what day of the month is salary credited?",
+    "reference": "Salary is credited on the last working day of each month.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "last working day"
+    ],
+    "evidence": [
+      "Salary is processed and credited to bank accounts on the last working day of each month."
+    ]
+  },
+  {
+    "id": "gen_payroll_discrepancy",
+    "role": "employee",
+    "type": "answerable",
+    "question": "Within how many working days must a payroll discrepancy be raised, and how quickly is it resolved?",
+    "reference": "Discrepancies must be raised to HR within 5 working days of salary credit and are resolved within 7 working days.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "5 working days",
+      "7 working days"
+    ],
+    "evidence": [
+      "Raise discrepancies to HR within 5 working days of salary credit.",
+      "Issues resolved within 7 working days."
+    ]
+  },
+  {
+    "id": "gen_basic_share",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What share of CTC is the basic salary?",
+    "reference": "Basic salary is 40-50% of CTC.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "40-50%|40–50%|40 to 50%"
+    ],
+    "evidence": [
+      "40-50% of CTC"
+    ]
+  },
+  {
+    "id": "gen_fire_drills",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How often are fire drills conducted?",
+    "reference": "Fire drills are conducted quarterly.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "quarterly"
+    ],
+    "evidence": [
+      "Fire drills conducted quarterly."
+    ]
+  },
+  {
+    "id": "gen_tuition_service",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What must an employee do after receiving tuition reimbursement?",
+    "reference": "They must serve 1 year after the reimbursement or repay the amount.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "1 year",
+      "repay"
+    ],
+    "evidence": [
+      "Must serve 1 year post-reimbursement or repay the amount."
+    ]
+  },
+  {
+    "id": "gen_notice_period",
+    "role": "employee",
+    "type": "answerable",
+    "question": "What is the typical notice period for resigning?",
+    "reference": "The notice period is per the appointment letter, typically 30-90 days.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "30-90 days|30–90 days|30 to 90 days"
+    ],
+    "evidence": [
+      "Notice period as per appointment letter (typically 30-90 days)."
+    ]
+  },
+  {
+    "id": "gen_final_settlement",
+    "role": "employee",
+    "type": "answerable",
+    "question": "Within how many days is the full and final settlement processed after exit?",
+    "reference": "It is processed within 30-60 days of exit, including leave encashment and statutory dues.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "30-60 days|30–60 days|30 to 60 days"
+    ],
+    "evidence": [
+      "Processed within 30-60 days of exit, including leave encashment and statutory dues."
+    ]
+  },
+  {
+    "id": "gen_maternity_apply",
+    "role": "employee",
+    "type": "answerable",
+    "question": "How do I apply for maternity leave?",
+    "reference": "Submit the application on HRMS with a medical certificate at least 8 weeks before the due date.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "8 weeks",
+      "medical certificate"
+    ],
+    "evidence": [
+      "Submit application on HRMS with medical certificate at least 8 weeks before due date."
+    ]
+  },
+  {
+    "id": "mkt_q1_acq_target",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What was the customer acquisition target for Q1 2024?",
+    "reference": "The Q1 2024 customer acquisition target was 150,000 new customers.",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "150,000"
+    ],
+    "evidence": [
+      "**Customer Acquisition Target**: 150,000 new customers"
+    ]
+  },
+  {
+    "id": "mkt_q1_conversion",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What conversion rate was achieved in Q1 2024 compared with the target?",
+    "reference": "Q1 2024 achieved a 10.2% conversion rate against a 10.0% target.",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "10.2%",
+      "10.0%"
+    ],
+    "evidence": [
+      "Achieved a 10.2% conversion rate, exceeding the 10.0% target through effective funnel optimizations."
+    ]
+  },
+  {
+    "id": "mkt_q1_revenue",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How much revenue did the Q1 2024 marketing report say was generated?",
+    "reference": "$6.8 million in revenue was generated in Q1 2024.",
+    "expected_sources": [
+      "marketing_report_q1_2024.md"
+    ],
+    "keywords": [
+      "$6.8 million"
+    ],
+    "evidence": [
+      "Generated $6.8 million in revenue"
+    ]
+  },
+  {
+    "id": "mkt_q2_countries",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "Which Southeast Asian markets were targeted in Q2 2024?",
+    "reference": "Q2 2024 targeted Indonesia, Thailand and Vietnam.",
+    "expected_sources": [
+      "marketing_report_q2_2024.md"
+    ],
+    "keywords": [
+      "Indonesia",
+      "Thailand",
+      "Vietnam"
+    ],
+    "evidence": [
+      "including Indonesia, Thailand, and Vietnam"
+    ]
+  },
+  {
+    "id": "mkt_q2_email",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What increase in email-driven conversions was achieved in Q2 2024?",
+    "reference": "Email-driven conversions increased 12%, surpassing the 10% target.",
+    "expected_sources": [
+      "marketing_report_q2_2024.md"
+    ],
+    "keywords": [
+      "12%"
+    ],
+    "evidence": [
+      "Achieved a 12% increase in email-driven conversions, surpassing the 10% target"
+    ]
+  },
+  {
+    "id": "mkt_q3_countries",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "Which Latin American countries were targeted by the Q3 2024 campaigns?",
+    "reference": "Campaigns targeted Brazil, Mexico and Colombia.",
+    "expected_sources": [
+      "marketing_report_q3_2024.md"
+    ],
+    "keywords": [
+      "Brazil",
+      "Mexico",
+      "Colombia"
+    ],
+    "evidence": [
+      "Launched targeted campaigns in Brazil, Mexico, and Colombia"
+    ]
+  },
+  {
+    "id": "mkt_q3_cpa",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What was the cost per acquisition benchmark for Q3 2024?",
+    "reference": "The Q3 2024 CPA benchmark was $11.11.",
+    "expected_sources": [
+      "marketing_report_q3_2024.md"
+    ],
+    "keywords": [
+      "$11.11"
+    ],
+    "evidence": [
+      "Calculated as marketing spend divided by the customer acquisition target ($2M / 180,000)."
+    ]
+  },
+  {
+    "id": "mkt_q3_revenue",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How much revenue was generated in Q3 2024 according to the marketing report?",
+    "reference": "$7.2 million in revenue was generated in Q3 2024.",
+    "expected_sources": [
+      "marketing_report_q3_2024.md"
+    ],
+    "keywords": [
+      "$7.2 million"
+    ],
+    "evidence": [
+      "Generated $7.2 million in revenue, with projections to reach $7.5 million pending final September data."
+    ]
+  },
+  {
+    "id": "mkt_q4_abm",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How many new enterprise contracts did account-based marketing secure in Q4 2024 and what were they worth?",
+    "reference": "Account-based marketing secured 10 new contracts worth $1.2 million in annual recurring revenue.",
+    "expected_sources": [
+      "market_report_q4_2024.md"
+    ],
+    "keywords": [
+      "10 new contracts",
+      "$1.2 million"
+    ],
+    "evidence": [
+      "securing 10 new contracts worth $1.2 million in annual recurring revenue"
+    ]
+  },
+  {
+    "id": "mkt_q4_loyalty",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "How many customers were enrolled in the Q4 2024 loyalty program and what share redeemed rewards?",
+    "reference": "50,000 customers were enrolled and 60% redeemed rewards by quarter-end.",
+    "expected_sources": [
+      "market_report_q4_2024.md"
+    ],
+    "keywords": [
+      "50,000",
+      "60%"
+    ],
+    "evidence": [
+      "Enrolled 50,000 customers in the new loyalty program, with 60% redeeming rewards by quarter-end."
+    ]
+  },
+  {
+    "id": "mkt_q4_conversion",
+    "role": "marketing",
+    "type": "answerable",
+    "question": "What conversion rate was achieved in Q4 2024 versus the target?",
+    "reference": "Q4 2024 achieved a 14.2% conversion rate, slightly below the 15.0% target.",
+    "expected_sources": [
+      "market_report_q4_2024.md"
+    ],
+    "keywords": [
+      "14.2%",
+      "15.0%"
+    ],
+    "evidence": [
+      "Achieved a 14.2% conversion rate, slightly below the 15.0% target"
+    ]
+  },
+  {
+    "id": "fin_q2_revenue",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was FinSolve's revenue in Q2 2024?",
+    "reference": "Q2 2024 revenue was $2.3 billion, up 25% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$2.3 billion"
+    ],
+    "evidence": [
+      "$2.3 billion, up 25% YoY"
+    ]
+  },
+  {
+    "id": "fin_q1_op_income",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was operating income in Q1 2024?",
+    "reference": "Q1 2024 operating income was $500 million.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$500 million"
+    ],
+    "evidence": [
+      "$500 million, supported by streamlined operations and high-margin product offerings."
+    ]
+  },
+  {
+    "id": "fin_q4_net_income",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was net income in Q4 2024?",
+    "reference": "Q4 2024 net income was $325 million, up 18% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$325 million"
+    ],
+    "evidence": [
+      "$325 million, up 18% YoY"
+    ]
+  },
+  {
+    "id": "fin_q3_marketing_spend",
+    "role": "finance",
+    "type": "answerable",
+    "question": "How much did the finance report show was spent on marketing in Q3 2024?",
+    "reference": "Q3 2024 marketing spend was $600 million.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$600 million"
+    ],
+    "evidence": [
+      "$600 million, focused on customer retention initiatives and localized events in Latin America."
+    ]
+  },
+  {
+    "id": "fin_q4_ocf",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was cash flow from operations in Q4 2024?",
+    "reference": "Q4 2024 cash flow from operations was $450 million, up 18% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$450 million"
+    ],
+    "evidence": [
+      "$450 million, up 18% YoY, driven by strong holiday sales"
+    ]
+  },
+  {
+    "id": "fin_q1_gross_margin",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What was the gross margin in Q1 2024?",
+    "reference": "The Q1 2024 gross margin was 58%.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "58%"
+    ],
+    "evidence": [
+      "58%, reflecting effective cost management and pricing strategies."
+    ]
+  },
+  {
+    "id": "fin_q3_vendor_loyalty",
+    "role": "finance",
+    "type": "answerable",
+    "question": "How much of Q3 2024 vendor services spending went to loyalty programs and customer retention?",
+    "reference": "$45.5 million (35% of vendor services) went to loyalty programs and customer retention.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "$45.5 million"
+    ],
+    "evidence": [
+      "35% ($45.5 million) allocated to loyalty programs and customer retention strategies."
+    ]
+  },
+  {
+    "id": "fin_q4_revenue_growth",
+    "role": "finance",
+    "type": "answerable",
+    "question": "How much did revenue grow year over year in Q4 2024?",
+    "reference": "Q4 2024 revenue was $2.6 billion, up 35% year over year.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "35%",
+      "$2.6 billion"
+    ],
+    "evidence": [
+      "$2.6 billion, up 35% YoY"
+    ]
+  },
+  {
+    "id": "fin_q3_risk",
+    "role": "finance",
+    "type": "answerable",
+    "question": "What vendor-related risk was noted for Q3 2024 and how was it mitigated?",
+    "reference": "Vendor cost inflation in Latin America was mitigated by renegotiating terms with local suppliers.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "inflation",
+      "renegotiat"
+    ],
+    "evidence": [
+      "Vendor cost inflation in Latin America.",
+      "Renegotiated terms with local suppliers to secure favorable pricing and reduce costs."
+    ]
+  },
+  {
+    "id": "eng_rto_rpo",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "What are the disaster recovery RTO and RPO?",
+    "reference": "RTO is 4 hours and RPO is 15 minutes.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "4 hours",
+      "15 minutes"
+    ],
+    "evidence": [
+      "Recovery Time Objective (RTO) of 4 hours.",
+      "Recovery Point Objective (RPO) of 15 minutes."
+    ]
+  },
+  {
+    "id": "eng_circuit_breakers",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "What is used to implement circuit breakers?",
+    "reference": "Circuit breakers are implemented using the Istio service mesh.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Istio"
+    ],
+    "evidence": [
+      "Implemented using Istio service mesh to prevent cascading failures."
+    ]
+  },
+  {
+    "id": "eng_pr_approvals",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How many approvals does a pull request need?",
+    "reference": "Pull requests require at least two approvals: one peer engineer and one senior engineer or technical lead.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "two approvals|2 approvals",
+      "senior engineer"
+    ],
+    "evidence": [
+      "Pull requests require at least two approvals:"
+    ]
+  },
+  {
+    "id": "eng_unit_coverage",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "What minimum unit test coverage must code meet before review?",
+    "reference": "Minimum unit test coverage is 85%.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "85%"
+    ],
+    "evidence": [
+      "Unit test coverage (minimum 85%)"
+    ]
+  },
+  {
+    "id": "eng_review_retro",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How long are the sprint review and the sprint retrospective?",
+    "reference": "The sprint review is 2 hours and the retrospective is 1.5 hours.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "2 hours",
+      "1.5 hours"
+    ],
+    "evidence": [
+      "Demo of completed features to stakeholders (2 hours).",
+      "Team discusses improvements for the next sprint (1.5 hours)."
+    ]
+  },
+  {
+    "id": "eng_branching",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "Which Git branching strategy does engineering use?",
+    "reference": "Engineering uses Gitflow.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Gitflow"
+    ],
+    "evidence": [
+      "Branch Strategy: Gitflow"
+    ]
+  },
+  {
+    "id": "eng_encryption",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "What encryption protects data in transit and at rest?",
+    "reference": "TLS 1.3 protects data in transit and AES-256 with AWS KMS protects data at rest.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "TLS 1.3",
+      "AES-256"
+    ],
+    "evidence": [
+      "Data in transit: TLS 1.3 for all communications",
+      "Data at rest: AES-256 encryption using AWS KMS"
+    ]
+  },
+  {
+    "id": "eng_critical_vuln",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How quickly must critical vulnerabilities be remediated?",
+    "reference": "Critical vulnerabilities require immediate remediation within 24 hours.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "24 hours"
+    ],
+    "evidence": [
+      "Critical: Immediate remediation (24 hours)"
+    ]
+  },
+  {
+    "id": "eng_soc_tool",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "Which tool does the Security Operations Center use for 24/7 monitoring?",
+    "reference": "The SOC uses Splunk for 24/7 monitoring.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Splunk"
+    ],
+    "evidence": [
+      "24/7 monitoring via Splunk"
+    ]
+  },
+  {
+    "id": "eng_frontend",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "What technologies is the web application built with?",
+    "reference": "The web application is a single page application built with React, Redux and Tailwind CSS.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "React",
+      "Redux",
+      "Tailwind"
+    ],
+    "evidence": [
+      "A responsive Single Page Application (SPA) built with React, Redux, and Tailwind CSS"
+    ]
+  },
+  {
+    "id": "eng_mobile",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "Which languages are the native mobile apps developed in?",
+    "reference": "The iOS app uses Swift and the Android app uses Kotlin.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Swift",
+      "Kotlin"
+    ],
+    "evidence": [
+      "Native mobile applications developed using Swift (iOS) and Kotlin (Android)"
+    ]
+  },
+  {
+    "id": "eng_auth_service",
+    "role": "engineering",
+    "type": "answerable",
+    "question": "How does the authentication service manage identity and authorization?",
+    "reference": "It uses OAuth 2.0 for authentication and JWT tokens for authorization.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "OAuth 2.0",
+      "JWT"
+    ],
+    "evidence": [
+      "Manages user identity, authentication (OAuth 2.0), and authorization using JWT tokens."
+    ]
+  },
+  {
+    "id": "clevel_q2_gross_margin",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "What was the gross margin in Q2 2024?",
+    "reference": "The Q2 2024 gross margin was 60%.",
+    "expected_sources": [
+      "quarterly_financial_report.md"
+    ],
+    "keywords": [
+      "60%"
+    ],
+    "evidence": [
+      "60%, driven by higher-margin product offerings and operational efficiencies."
+    ]
+  },
+  {
+    "id": "clevel_splunk",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "Which tool does the Security Operations Center use for 24/7 monitoring?",
+    "reference": "The SOC uses Splunk for 24/7 monitoring.",
+    "expected_sources": [
+      "engineering_master_doc.md"
+    ],
+    "keywords": [
+      "Splunk"
+    ],
+    "evidence": [
+      "24/7 monitoring via Splunk"
+    ]
+  },
+  {
+    "id": "clevel_tuition",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "What is the annual tuition and certification reimbursement limit?",
+    "reference": "Up to ₹50,000 per year, subject to manager and HR approval.",
+    "expected_sources": [
+      "employee_handbook.md"
+    ],
+    "keywords": [
+      "₹50,000"
+    ],
+    "evidence": [
+      "Up to ₹50,000/year for relevant courses, subject to manager and HR approval."
+    ]
+  },
+  {
+    "id": "clevel_q4_loyalty",
+    "role": "c_level",
+    "type": "answerable",
+    "question": "How many customers were enrolled in the Q4 2024 loyalty program?",
+    "reference": "50,000 customers were enrolled in the Q4 2024 loyalty program.",
+    "expected_sources": [
+      "market_report_q4_2024.md"
+    ],
+    "keywords": [
+      "50,000"
+    ],
+    "evidence": [
+      "Enrolled 50,000 customers in the new loyalty program, with 60% redeeming rewards by quarter-end."
+    ]
+  },
+  {
+    "id": "hr_1000_role_dept",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the job role and department of employee FINEMP1000?",
+    "reference": "FINEMP1000 (Aadhya Patel) is a Sales Manager in the Sales department.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "Sales Manager",
+      "Sales"
+    ],
+    "evidence": [
+      "FINEMP1000,Aadhya Patel,Sales Manager,Sales,aadhya.patel@fintechco.com,Ahmedabad,1991-04-03,2018-11-20,FINEMP1006,1332478.37,22,11,99.31,3,2024-05-21"
+    ]
+  },
+  {
+    "id": "hr_1038_location",
+    "role": "hr",
+    "type": "answerable",
+    "question": "In which city is Diya Bhat (FINEMP1038) located?",
+    "reference": "Diya Bhat (FINEMP1038) is located in Pune.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "Pune"
+    ],
+    "evidence": [
+      "FINEMP1038,Diya Bhat,Security Engineer,Technology,diya.bhat@fintechco.com,Pune,1994-01-23,2018-02-22,FINEMP1007,1152589.39,4,3,92.5,4,2024-05-13"
+    ]
+  },
+  {
+    "id": "hr_1058_attendance",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the attendance percentage of employee FINEMP1058?",
+    "reference": "FINEMP1058 (Avni Chopra) has an attendance of 96.31%.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "96.31"
+    ],
+    "evidence": [
+      "FINEMP1058,Avni Chopra,Financial Analyst,Finance,avni.chopra@fintechco.com,Hyderabad,1990-07-25,2019-09-03,FINEMP1006,1098952.83,8,3,96.31,5,2025-01-31"
+    ]
+  },
+  {
+    "id": "hr_1078_manager",
+    "role": "hr",
+    "type": "answerable",
+    "question": "Who is the manager of employee FINEMP1078?",
+    "reference": "The manager of FINEMP1078 (Prisha Chopra) is FINEMP1001.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "FINEMP1001"
+    ],
+    "evidence": [
+      "FINEMP1078,Prisha Chopra,Data Analyst,Data,prisha.chopra@fintechco.com,Lucknow,1981-03-18,2023-08-01,FINEMP1001,1438958.04,24,1,90.49,2,2024-02-28"
+    ]
+  },
+  {
+    "id": "hr_1098_leave_balance",
+    "role": "hr",
+    "type": "answerable",
+    "question": "How many leave days does employee FINEMP1098 have left?",
+    "reference": "FINEMP1098 (Arjun Patel) has a leave balance of 19 days.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "19"
+    ],
+    "evidence": [
+      "FINEMP1098,Arjun Patel,Risk Analyst,Risk,arjun.patel@fintechco.com,Jaipur,1994-01-29,2018-11-26,FINEMP1004,1521060.31,19,9,92.26,4,2024-08-06"
+    ]
+  },
+  {
+    "id": "hr_1005_joined",
+    "role": "hr",
+    "type": "answerable",
+    "question": "On what date did employee FINEMP1005 join the company?",
+    "reference": "FINEMP1005 (Shaurya Joshi) joined on 2020-10-31.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "2020-10-31"
+    ],
+    "evidence": [
+      "FINEMP1005,Shaurya Joshi,Financial Analyst,Finance,shaurya.joshi@fintechco.com,Delhi,1977-05-28,2020-10-31,FINEMP1009,1085205.18,4,4,82.77,2,2024-09-15"
+    ]
+  },
+  {
+    "id": "hr_1010_rating",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the performance rating of employee FINEMP1010?",
+    "reference": "FINEMP1010 (Vihaan Chowdhury) has a performance rating of 5.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "5"
+    ],
+    "evidence": [
+      "FINEMP1010,Vihaan Chowdhury,HR Manager,HR,vihaan.chowdhury@fintechco.com,Kolkata,1996-12-31,2021-10-23,FINEMP1007,1201969.11,10,2,99.98,5,2024-04-20"
+    ]
+  },
+  {
+    "id": "hr_1020_last_review",
+    "role": "hr",
+    "type": "answerable",
+    "question": "When was the last performance review of employee FINEMP1020?",
+    "reference": "FINEMP1020 (Krishna Verma) was last reviewed on 2024-09-14.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "2024-09-14"
+    ],
+    "evidence": [
+      "FINEMP1020,Krishna Verma,Sales Manager,Sales,krishna.verma@fintechco.com,Mumbai,1978-06-25,2024-11-29,FINEMP1007,969422.69,24,13,94.35,1,2024-09-14"
+    ]
+  },
+  {
+    "id": "hr_1033_name_role",
+    "role": "hr",
+    "type": "answerable",
+    "question": "What is the full name of employee FINEMP1033 and what is the job role?",
+    "reference": "FINEMP1033 is Saanvi Bhat, a Risk Analyst.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "Saanvi Bhat",
+      "Risk Analyst"
+    ],
+    "evidence": [
+      "FINEMP1033,Saanvi Bhat,Risk Analyst,Risk,saanvi.bhat@fintechco.com,Hyderabad,1985-10-07,2022-06-26,FINEMP1003,1513021.23,8,2,97.62,1,2024-10-09"
+    ]
+  },
+  {
+    "id": "hr_1001_leaves_taken",
+    "role": "hr",
+    "type": "answerable",
+    "question": "How many leaves has employee FINEMP1001 taken?",
+    "reference": "FINEMP1001 (Isha Chowdhury) has taken 3 leaves.",
+    "expected_sources": [
+      "hr_data.csv"
+    ],
+    "keywords": [
+      "3"
+    ],
+    "evidence": [
+      "FINEMP1001,Isha Chowdhury,Credit Officer,Finance,isha.chowdhury@fintechco.com,Pune,1995-09-21,2021-05-20,FINEMP1005,1491158.23,8,3,85.15,5,2024-01-20"
+    ]
+  },
+  {
+    "id": "oos_employee_sabbatical",
+    "role": "employee",
+    "type": "out_of_scope",
+    "question": "How many weeks of paid sabbatical leave can an employee take?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_finance_q1_2025",
+    "role": "finance",
+    "type": "out_of_scope",
+    "question": "What was FinSolve's revenue in Q1 2025?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
+  },
+  {
+    "id": "oos_eng_aws_bill",
+    "role": "engineering",
+    "type": "out_of_scope",
+    "question": "What is the monthly AWS bill for the engineering department?",
+    "reference": "",
+    "expected_sources": [],
+    "keywords": []
   }
 ]

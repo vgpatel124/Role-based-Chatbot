@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -14,8 +15,13 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 class Settings(BaseModel):
+    # Which provider answers questions (query rewriting and answer generation).
+    # Groq is the default; the evaluation workflow runs the chatbot on Anthropic.
+    LLM_PROVIDER: Literal["groq", "anthropic"] = Field(default="groq")
     GROQ_API_KEY: str = Field(default="")
     GROQ_MODEL: str = Field(default="openai/gpt-oss-120b")
+    ANTHROPIC_API_KEY: str = Field(default="")
+    ANTHROPIC_MODEL: str = Field(default="claude-haiku-5-5")
     JWT_SECRET_KEY: str = Field(default="finsolve-secret-key-change-in-production")
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRE_MINUTES: int = Field(default=30)
@@ -49,10 +55,24 @@ class Settings(BaseModel):
     # Cache versioning — increment to invalidate all cached responses
     RETRIEVAL_VERSION: str = Field(default="v2")
 
+    # Langfuse tracing (app/utils/tracing.py). Tracing is off until both keys are set.
+    # The SDK also reads LANGFUSE_TRACING_ENVIRONMENT, LANGFUSE_RELEASE and
+    # LANGFUSE_SAMPLE_RATE from the environment.
+    LANGFUSE_PUBLIC_KEY: str = Field(default="")
+    LANGFUSE_SECRET_KEY: str = Field(default="")
+    LANGFUSE_BASE_URL: str = Field(default="https://cloud.langfuse.com")
+    LANGFUSE_TRACING_ENABLED: bool = Field(default=True)
+    # Send questions, answers, prompts and document text to Langfuse. Off by default:
+    # this app serves HR and finance records.
+    LANGFUSE_CAPTURE_CONTENT: bool = Field(default=False)
+
 
 settings = Settings(
+    LLM_PROVIDER=os.getenv("LLM_PROVIDER", "groq").strip().lower(),
     GROQ_API_KEY=os.getenv("GROQ_API_KEY", ""),
     GROQ_MODEL=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
+    ANTHROPIC_API_KEY=os.getenv("ANTHROPIC_API_KEY", ""),
+    ANTHROPIC_MODEL=os.getenv("ANTHROPIC_MODEL", "claude-haiku-5-5"),
     JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", "finsolve-secret-key-change-in-production"),
     JWT_ALGORITHM=os.getenv("JWT_ALGORITHM", "HS256"),
     JWT_EXPIRE_MINUTES=int(os.getenv("JWT_EXPIRE_MINUTES", "30")),
@@ -74,4 +94,9 @@ settings = Settings(
     CONVERSATION_HISTORY_LENGTH=int(os.getenv("CONVERSATION_HISTORY_LENGTH", "6")),
     QUERY_REWRITING_ENABLED=_env_bool("QUERY_REWRITING_ENABLED", True),
     RETRIEVAL_VERSION=os.getenv("RETRIEVAL_VERSION", "v2"),
+    LANGFUSE_PUBLIC_KEY=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
+    LANGFUSE_SECRET_KEY=os.getenv("LANGFUSE_SECRET_KEY", ""),
+    LANGFUSE_BASE_URL=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+    LANGFUSE_TRACING_ENABLED=_env_bool("LANGFUSE_TRACING_ENABLED", True),
+    LANGFUSE_CAPTURE_CONTENT=_env_bool("LANGFUSE_CAPTURE_CONTENT", False),
 )

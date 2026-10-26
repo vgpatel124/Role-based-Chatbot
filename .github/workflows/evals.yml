@@ -1,7 +1,7 @@
 name: Evals
 
 # RBAC red-team and answer-quality evaluation against a freshly built index.
-# Heavier than CI (downloads models, builds the index, calls Groq), so it runs
+# Heavier than CI (downloads models, builds the index, calls the Anthropic API), so it runs
 # nightly, on demand, and on pull requests that touch the pipeline or the data.
 on:
   schedule:
@@ -27,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
-      # Only whether a key exists, never its value: the key itself is passed to the two
-      # LLM-backed steps alone, so pip and the other steps never see it. It is empty on
-      # pull requests from forks, and those steps are then skipped.
-      HAS_GROQ_KEY: ${{ secrets.GROQ_API_KEY != '' }}
+      # Pull requests from forks get no secrets, so the LLM-backed steps are skipped for them
+      # (and the job summary says so). For everything else they always run: a missing or
+      # rejected Anthropic key fails the run, it is never a pass.
+      IS_FORK_PR: ${{ github.event.pull_request.head.repo.fork == true }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,25 +57,34 @@ jobs:
       - name: RBAC red-team (retrieval and reranker)
         run: python evaluation/redteam.py
 
+      # The chatbot runs on Anthropic here (LLM_PROVIDER=anthropic, Claude Haiku), so the Evals
+      # workflow does not use Groq at all and cannot run out of Groq's free-tier quota. The key is
+      # passed to the two LLM-backed steps only, so pip and the other steps never see it. Production
+      # keeps its own provider setting (Groq by default).
       - name: RBAC red-team (full pipeline with LLM)
-        if: env.HAS_GROQ_KEY == 'true'
+        if: env.IS_FORK_PR != 'true'
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          LLM_PROVIDER: anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python evaluation/redteam.py --llm
 
-      - name: Answer quality (RAGAS)
-        if: env.HAS_GROQ_KEY == 'true'
+      # Generator, red-team target and RAGAS judge are all Claude Haiku via the Anthropic API.
+      # Every answerable question is judged (no --ragas-limit): a 12-sample subset was too noisy to gate on.
+      # The script exits non-zero before generating anything if the key is missing or rejected.
+      - name: Answer quality (RAGAS, Claude Haiku judge)
+        if: env.IS_FORK_PR != 'true'
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: python evaluation/evaluate_answers.py --check --ragas-limit 12
+          LLM_PROVIDER: anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python evaluation/evaluate_answers.py --check
 
       - name: Publish results
         if: always()
         run: |
           {
             echo "## Eval results"
-            if [ "$HAS_GROQ_KEY" != "true" ]; then
-              echo "> **LLM-backed steps were skipped:** the GROQ_API_KEY secret is not available to this run."
+            if [ "$IS_FORK_PR" = "true" ]; then
+              echo "> **LLM-backed steps were skipped:** this pull request comes from a fork, which gets no secrets."
             fi
             for f in evaluation/redteam_results.json evaluation/answer_results.json; do
               if [ -f "$f" ]; then echo "- \`$f\` attached as an artifact"; fi

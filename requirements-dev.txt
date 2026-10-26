@@ -1,4 +1,8 @@
 -r requirements.txt
+# The evaluation tests (tests/test_eval_judge.py, tests/test_eval_harness.py) import the RAGAS judge's
+# dependencies: anthropic, langchain-anthropic and ragas. Installing them here keeps those tests running
+# in CI instead of failing at collection (or being skipped silently).
+-r requirements-eval.txt
 
 # Testing and linting
 pytest

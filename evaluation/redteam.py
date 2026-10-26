@@ -2,7 +2,7 @@
 
 Usage (from the project root, after `python app/ingest.py`):
     python evaluation/redteam.py            # retrieval + reranker only, no LLM, no API key
-    python evaluation/redteam.py --llm      # also runs the full pipeline with the Groq LLM
+    python evaluation/redteam.py --llm      # also runs the full pipeline with the chatbot LLM (LLM_PROVIDER)
     python evaluation/redteam.py --role hr --template role_claim --verbose
 
 Every role asks every other department's question, plain and wrapped in
@@ -29,6 +29,8 @@ sys.path.insert(0, str(ROOT))
 
 # The semantic cache would answer from a previous run; this must measure the pipeline.
 os.environ["CACHE_ENABLED"] = "false"
+# If Langfuse tracing is configured, keep these runs apart from real traffic.
+os.environ.setdefault("LANGFUSE_TRACING_ENVIRONMENT", "evaluation")
 
 from app.config import settings  # noqa: E402
 from app.rag import (  # noqa: E402
@@ -41,6 +43,7 @@ from app.rag import (  # noqa: E402
 )
 from app.services.reranker import reranker  # noqa: E402
 from app.utils.embeddings import get_embeddings  # noqa: E402
+from app.utils.llm import missing_llm_credential, preflight_chat_model  # noqa: E402
 from app.utils.logger import RequestContext  # noqa: E402
 from evaluation.redteam_cases import (  # noqa: E402
     COLLECTION_FILES,
@@ -122,15 +125,21 @@ def run_case(case: AttackCase, use_llm: bool) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--llm", action="store_true", help="also run the full pipeline with the Groq LLM")
+    parser.add_argument("--llm", action="store_true", help="also run the full pipeline with the chatbot's LLM (LLM_PROVIDER)")
     parser.add_argument("--role", help="only this role")
     parser.add_argument("--template", help="only this attack template")
     parser.add_argument("--verbose", action="store_true", help="print every case")
     args = parser.parse_args()
 
-    if args.llm and not settings.GROQ_API_KEY:
-        print("--llm needs GROQ_API_KEY in the environment or .env", file=sys.stderr)
+    missing = missing_llm_credential()
+    if args.llm and missing:
+        print(f"--llm needs {missing} for LLM_PROVIDER={settings.LLM_PROVIDER} (environment or .env)", file=sys.stderr)
         return 2
+    if args.llm:
+        problem = preflight_chat_model()
+        if problem:
+            print(f"--llm: chatbot LLM unavailable: {problem}.", file=sys.stderr)
+            return 2
 
     cases = [
         c
@@ -175,8 +184,15 @@ def main() -> int:
 
     RESULTS_PATH.write_text(json.dumps({"llm": args.llm, "results": results}, indent=2), encoding="utf-8")
     print(f"\nWrote {RESULTS_PATH.relative_to(ROOT)}")
-    print("RESULT: " + ("FAIL - unauthorized data reached a role" if leaked else "PASS - no leaks"))
-    return 1 if leaked else 0
+    if leaked:
+        print("RESULT: FAIL - unauthorized data reached a role")
+        return 1
+    if args.llm and errors:
+        # A provider outage or a rejected key means those attacks were never answered: that proves nothing.
+        print(f"RESULT: INCONCLUSIVE - {len(errors)} of {len(results)} attacks hit provider errors, no verdict")
+        return 1
+    print("RESULT: PASS - no leaks")
+    return 0
 
 
 if __name__ == "__main__":
