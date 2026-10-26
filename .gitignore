@@ -22,3 +22,5 @@ venv/
 evaluation/retrieval_results.json
 evaluation/redteam_results.json
 evaluation/answer_results.json
+evaluation/benchmark_results.json
+evaluation/benchmark_report.md
